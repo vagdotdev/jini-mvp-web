@@ -4,7 +4,9 @@ Live shopping MVP: Next.js app in **`web/`**, product brief and journal at repo 
 
 ---
 
-## What this project is and why it exists
+## More info if needed
+
+### What this project is and why it exists
 
 Jini is being built specifically for **Sarojini Nagar** — a large open-air and semi-covered fashion market in **South Delhi, India**. Sarojini is one of the best-known cheap fashion destinations in the country. It sells factory surplus, export overruns, and one-off pieces. Nothing is catalogued. Stock is chaotic, high-turnover, genuinely non-repeatable. Prices are negotiated on the spot with individual shopkeepers.
 
@@ -22,7 +24,7 @@ This model only works with live video + real-time item state + fast checkout. Th
 
 ---
 
-## Pilot plan
+### Pilot plan
 
 The first live run is a **small controlled test: ~5–10 known buyers, real items, real purchases from Sarojini**.
 
@@ -35,7 +37,7 @@ Razorpay (UPI + card) replaces this after the pilot validates the core flow end-
 
 ---
 
-## Production
+### Production
 
 - **Live URL:** `https://www.sarojini.shop`
 - **Vercel project:** `vagdevs-projects/web` (root directory must be `web/`)
