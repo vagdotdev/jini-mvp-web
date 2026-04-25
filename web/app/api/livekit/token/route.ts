@@ -60,7 +60,7 @@ export const GET = wrapRoute("api.livekit.token", async (req: Request) => {
   if (!stream) {
     return NextResponse.json({ error: "Stream not found" }, { status: 404 });
   }
-  if (stream.status === "ended") {
+  if (stream.status === "ended" && role !== "host") {
     return NextResponse.json(
       { error: "This stream has ended. New joins are disabled." },
       { status: 410 },
@@ -71,7 +71,7 @@ export const GET = wrapRoute("api.livekit.token", async (req: Request) => {
   const accessToken = new AccessToken(apiKey, apiSecret, {
     identity,
     name: role === "host" ? "Jini host" : "Jini viewer",
-    ttl: "2h",
+    ttl: role === "host" ? "24h" : "2h",
   });
 
   accessToken.addGrant({

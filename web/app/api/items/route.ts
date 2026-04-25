@@ -20,7 +20,7 @@ async function resolveStreamFromBuddyToken(
 ) {
   return admin
     .from("live_streams")
-    .select("id")
+    .select("id, status")
     .eq("buddy_token", token)
     .maybeSingle();
 }
@@ -47,6 +47,12 @@ export const GET = wrapRoute("api.items.get", async (req: Request) => {
   }
   if (!stream) {
     return NextResponse.json({ error: "Invalid buddy link" }, { status: 401 });
+  }
+  if (stream.status === "ended") {
+    return NextResponse.json(
+      { error: "This stream has ended. Buddy actions are disabled." },
+      { status: 410 },
+    );
   }
 
   const { data, error } = await admin
@@ -93,6 +99,12 @@ export const POST = wrapRoute("api.items.post", async (req: Request) => {
   }
   if (!stream) {
     return NextResponse.json({ error: "Invalid buddy link" }, { status: 401 });
+  }
+  if (stream.status === "ended") {
+    return NextResponse.json(
+      { error: "This stream has ended. You cannot publish new items." },
+      { status: 410 },
+    );
   }
 
   const { count, error: countError } = await admin

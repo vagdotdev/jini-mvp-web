@@ -74,6 +74,7 @@ export default function AdminControlPage() {
   const [clearingStreams, setClearingStreams] = useState(false);
   const [orders, setOrders] = useState<RecentOrder[] | null>(null);
   const [ordersErr, setOrdersErr] = useState<string | null>(null);
+  const [copyToast, setCopyToast] = useState<string | null>(null);
 
   const buildHeaders = useCallback(() => {
     const headers: Record<string, string> = {
@@ -192,8 +193,17 @@ export default function AdminControlPage() {
     }
   }
 
-  function copy(text: string) {
-    void navigator.clipboard.writeText(text);
+  function copy(text: string, label?: string) {
+    void navigator.clipboard
+      .writeText(text)
+      .then(() => {
+        setCopyToast(`${label || "Link"} copied`);
+        window.setTimeout(() => setCopyToast(null), 1800);
+      })
+      .catch(() => {
+        setCopyToast("Copy failed");
+        window.setTimeout(() => setCopyToast(null), 2200);
+      });
   }
 
   return (
@@ -305,7 +315,7 @@ export default function AdminControlPage() {
                       <div className="flex gap-2">
                         <button
                           type="button"
-                          onClick={() => copy(url)}
+                          onClick={() => copy(url, `${label} link`)}
                           className="rounded-xl bg-zinc-950 px-3 py-2 text-xs font-semibold text-white hover:bg-zinc-800"
                         >
                           Copy
@@ -457,7 +467,7 @@ export default function AdminControlPage() {
                           <div className="flex gap-1">
                             <button
                               type="button"
-                              onClick={() => copy(url)}
+                              onClick={() => copy(url, `${label} link`)}
                               className="rounded-md bg-zinc-900 px-2 py-1 text-[10px] font-semibold text-white hover:bg-zinc-700"
                             >
                               Copy
@@ -585,6 +595,11 @@ export default function AdminControlPage() {
           </Link>
         </p>
       </div>
+      {copyToast ? (
+        <div className="pointer-events-none fixed bottom-5 right-5 z-50 rounded-xl bg-zinc-950/90 px-4 py-2 text-sm font-medium text-white shadow-2xl ring-1 ring-white/15 backdrop-blur">
+          {copyToast}
+        </div>
+      ) : null}
     </div>
   );
 }
