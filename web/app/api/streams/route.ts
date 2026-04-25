@@ -59,6 +59,75 @@ export async function GET(req: Request) {
 }
 
 /**
+ * DELETE /api/streams
+ * Clears previous stream history and associated test data from the admin page.
+ */
+export async function DELETE(req: Request) {
+  if (!checkCreateSecret(req)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const admin = createAdminClient();
+  if (!admin) {
+    return NextResponse.json({ demo: true, cleared: 0 });
+  }
+
+  const { data: streams, error: streamError } = await admin
+    .from("live_streams")
+    .select("id");
+  if (streamError) {
+    return NextResponse.json(
+      { error: friendlySupabaseKeyError(streamError.message) },
+      { status: 500 },
+    );
+  }
+
+  const streamIds = (streams || []).map((stream) => stream.id);
+  if (streamIds.length === 0) {
+    return NextResponse.json({ cleared: 0 });
+  }
+
+  const { data: items, error: itemLookupError } = await admin
+    .from("stream_items")
+    .select("id")
+    .in("stream_id", streamIds);
+  if (itemLookupError) {
+    return NextResponse.json({ error: itemLookupError.message }, { status: 500 });
+  }
+
+  const itemIds = (items || []).map((item) => item.id);
+  if (itemIds.length > 0) {
+    const { error: ordersError } = await admin
+      .from("orders")
+      .delete()
+      .in("item_id", itemIds);
+    if (ordersError) {
+      return NextResponse.json({ error: ordersError.message }, { status: 500 });
+    }
+  }
+
+  for (const table of ["chat_messages", "stream_access", "stream_items"] as const) {
+    const { error } = await admin.from(table).delete().in("stream_id", streamIds);
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+  }
+
+  const { error: deleteStreamsError } = await admin
+    .from("live_streams")
+    .delete()
+    .in("id", streamIds);
+  if (deleteStreamsError) {
+    return NextResponse.json(
+      { error: friendlySupabaseKeyError(deleteStreamsError.message) },
+      { status: 500 },
+    );
+  }
+
+  return NextResponse.json({ cleared: streamIds.length });
+}
+
+/**
  * POST /api/streams
  * Creates a live_streams row and returns three links (viewer, host, buddy).
  * Requires Supabase service role + optional JINI_STREAM_CREATE_SECRET header.

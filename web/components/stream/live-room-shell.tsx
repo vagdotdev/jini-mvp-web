@@ -56,6 +56,7 @@ export function LiveRoomShell({ slug }: { slug: string }) {
   const [buyMessage, setBuyMessage] = useState<string | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
   const [unread, setUnread] = useState(0);
+  const [statusDismissed, setStatusDismissed] = useState(false);
   const chatOpenRef = useRef(false);
   useEffect(() => {
     chatOpenRef.current = chatOpen;
@@ -146,7 +147,7 @@ export function LiveRoomShell({ slug }: { slug: string }) {
         const data = (await res.json()) as StreamMeta;
         if (!active) return;
         setStream(data);
-        setStatus("Connected to stream metadata. Realtime product rail is ready.");
+        setStatus("");
 
         const joinRes = await fetchWithTimeout("/api/streams/join", {
           method: "POST",
@@ -154,12 +155,8 @@ export function LiveRoomShell({ slug }: { slug: string }) {
           credentials: "include",
           body: JSON.stringify({ slug }),
         });
-        if (!joinRes.ok) {
-          setStatus(
-            joinRes.status === 401
-              ? "Sign in on the onboarding page to unlock realtime items."
-              : "Could not join stream session yet. You can still preview the UI.",
-          );
+        if (!joinRes.ok && joinRes.status !== 401) {
+          setStatus("Could not record your session — items and chat still work.");
         }
 
         if (!supabase) return;
@@ -269,9 +266,6 @@ export function LiveRoomShell({ slug }: { slug: string }) {
                   <span className="rounded-md bg-violet-600 px-2 py-1 text-xs font-semibold">
                     LIVE
                   </span>
-                  <span className="rounded-full bg-black/35 px-2.5 py-1 text-xs backdrop-blur">
-                    👁 2.7K
-                  </span>
                 </div>
                 <div className="mt-3 flex items-center gap-3 sm:mt-4">
                   <div className="h-10 w-10 shrink-0 rounded-full bg-gradient-to-br from-amber-200 to-pink-400 ring-2 ring-white/60 sm:h-11 sm:w-11" />
@@ -348,9 +342,19 @@ export function LiveRoomShell({ slug }: { slug: string }) {
                     {buyMessage}
                   </p>
                 ) : null}
-                <p className="rounded-full bg-black/40 px-3 py-2 text-xs text-white/70 backdrop-blur lg:py-1">
-                  {status}
-                </p>
+                {status && !statusDismissed ? (
+                  <div className="flex items-center gap-2 rounded-full bg-black/40 px-3 py-2 text-xs text-white/70 backdrop-blur lg:py-1">
+                    <span className="flex-1">{status}</span>
+                    <button
+                      type="button"
+                      onClick={() => setStatusDismissed(true)}
+                      className="shrink-0 text-white/40 hover:text-white/70"
+                      aria-label="Dismiss"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ) : null}
               </div>
             </div>
 
@@ -392,14 +396,14 @@ export function LiveRoomShell({ slug }: { slug: string }) {
       </button>
 
       {chatOpen ? (
-        <div className="fixed inset-0 z-40 flex flex-col bg-black/60 backdrop-blur-sm lg:hidden">
-          <button
-            type="button"
-            onClick={() => setChatOpen(false)}
-            className="flex-1"
-            aria-label="Close chat"
-          />
-          <div className="flex max-h-[85dvh] min-h-[60dvh] flex-col rounded-t-3xl border-t border-white/10 bg-zinc-950/95 p-4 pb-[calc(env(safe-area-inset-bottom,0)+1rem)] text-white shadow-2xl">
+        <div
+          className="fixed inset-0 z-40 flex flex-col justify-end bg-black/60 backdrop-blur-sm lg:hidden"
+          onClick={() => setChatOpen(false)}
+        >
+          <div
+            className="flex max-h-[85dvh] min-h-[60dvh] flex-col rounded-t-3xl border-t border-white/10 bg-zinc-950/95 p-4 pb-[calc(env(safe-area-inset-bottom,0)+1rem)] text-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="mb-3 flex items-center justify-between">
               <p className="text-sm font-semibold">Live chat</p>
               <button

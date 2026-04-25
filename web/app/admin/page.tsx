@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 
 type CreateResponse = {
   demo?: boolean;
@@ -32,6 +32,12 @@ type ListResponse = {
   error?: string;
 };
 
+type ClearResponse = {
+  demo?: boolean;
+  cleared?: number;
+  error?: string;
+};
+
 const STATUS_BADGE: Record<string, string> = {
   scheduled: "bg-zinc-200 text-zinc-700",
   live: "bg-rose-100 text-rose-800",
@@ -48,6 +54,7 @@ export default function AdminControlPage() {
   const [streams, setStreams] = useState<StreamRow[] | null>(null);
   const [streamsErr, setStreamsErr] = useState<string | null>(null);
   const [busyStream, setBusyStream] = useState<string | null>(null);
+  const [clearingStreams, setClearingStreams] = useState(false);
 
   const buildHeaders = useCallback(() => {
     const headers: Record<string, string> = {
@@ -71,10 +78,6 @@ export default function AdminControlPage() {
       setStreamsErr(e instanceof Error ? e.message : "Could not load streams");
     }
   }, [buildHeaders]);
-
-  useEffect(() => {
-    void refreshStreams();
-  }, [refreshStreams]);
 
   async function createStream() {
     setLoading(true);
@@ -116,6 +119,36 @@ export default function AdminControlPage() {
       }
     } finally {
       setBusyStream(null);
+    }
+  }
+
+  async function clearPreviousStreams() {
+    if (
+      !confirm(
+        "Clear all previous streams? This removes stream links, items, chat, and orders for every stream.",
+      )
+    ) {
+      return;
+    }
+
+    setClearingStreams(true);
+    setStreamsErr(null);
+    try {
+      const res = await fetch("/api/streams", {
+        method: "DELETE",
+        headers: buildHeaders(),
+      });
+      const json = (await res.json().catch(() => ({}))) as ClearResponse;
+      if (!res.ok) {
+        setStreamsErr(json.error || res.statusText);
+        return;
+      }
+      setResult(null);
+      setStreams([]);
+    } catch (e) {
+      setStreamsErr(e instanceof Error ? e.message : "Could not clear streams");
+    } finally {
+      setClearingStreams(false);
     }
   }
 
@@ -283,7 +316,7 @@ export default function AdminControlPage() {
         </div>
 
         <section className="rounded-[1.75rem] border border-white/70 bg-white p-6 shadow-xl shadow-zinc-900/5">
-          <div className="mb-4 flex items-center justify-between">
+          <div className="mb-4 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
               <h2 className="text-xl font-semibold tracking-tight text-zinc-950">
                 Recent streams
@@ -293,13 +326,40 @@ export default function AdminControlPage() {
                 clears any active items and pending reservations).
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => void refreshStreams()}
-              className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs font-semibold text-zinc-700 hover:bg-zinc-50"
-            >
-              Refresh
-            </button>
+            <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+              <input
+                className="h-9 w-40 rounded-xl border border-zinc-200 bg-zinc-50 px-3 text-xs text-zinc-950 outline-none ring-violet-500 placeholder:text-zinc-400 focus:border-violet-500 focus:bg-white focus:ring-2"
+                type="password"
+                value={secret}
+                onChange={(e) => setSecret(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && void refreshStreams()}
+                placeholder="Secret"
+                autoComplete="off"
+                aria-label="Admin secret for recent streams"
+              />
+              <button
+                type="button"
+                onClick={() => void refreshStreams()}
+                className="rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-xs font-semibold text-violet-800 hover:bg-violet-100"
+              >
+                Unlock
+              </button>
+              <button
+                type="button"
+                onClick={() => void refreshStreams()}
+                className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs font-semibold text-zinc-700 hover:bg-zinc-50"
+              >
+                Refresh
+              </button>
+              <button
+                type="button"
+                disabled={clearingStreams}
+                onClick={() => void clearPreviousStreams()}
+                className="rounded-xl border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-60"
+              >
+                {clearingStreams ? "Clearing..." : "Clear all"}
+              </button>
+            </div>
           </div>
 
           {streamsErr ? (
@@ -309,7 +369,10 @@ export default function AdminControlPage() {
           ) : null}
 
           {streams === null ? (
-            <p className="text-sm text-zinc-500">Loading…</p>
+            <p className="text-sm text-zinc-500">
+              Enter the secret and unlock recent streams, or press Refresh if no
+              secret is configured.
+            </p>
           ) : streams.length === 0 ? (
             <p className="text-sm text-zinc-500">
               No streams yet. Create one above to get your three links.
