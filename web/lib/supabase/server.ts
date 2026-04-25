@@ -1,13 +1,14 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { cleanSupabaseEnvValue } from "@/lib/supabase/clean-env";
 
 /**
  * Supabase client for Route Handlers / Server Components using the user's session (cookies).
  */
 export async function createServerSupabaseClient() {
   const cookieStore = await cookies();
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const url = cleanSupabaseEnvValue(process.env.NEXT_PUBLIC_SUPABASE_URL);
+  const anon = cleanSupabaseEnvValue(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
   if (!url || !anon) return null;
 
   return createServerClient(url, anon, {

@@ -1,19 +1,20 @@
+import { cleanSupabaseEnvValue } from "@/lib/supabase/clean-env";
+
 export function getPublicAppUrl() {
-  return (
-    process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || "http://localhost:3000"
-  );
+  const raw = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  return raw?.replace(/\/$/, "") || "http://localhost:3000";
 }
 
 export function isSupabaseConfigured() {
   return Boolean(
-    process.env.NEXT_PUBLIC_SUPABASE_URL &&
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    cleanSupabaseEnvValue(process.env.NEXT_PUBLIC_SUPABASE_URL) &&
+      cleanSupabaseEnvValue(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
   );
 }
 
 export function isSupabaseAdminConfigured() {
   return Boolean(
-    process.env.NEXT_PUBLIC_SUPABASE_URL &&
-      process.env.SUPABASE_SERVICE_ROLE_KEY,
+    cleanSupabaseEnvValue(process.env.NEXT_PUBLIC_SUPABASE_URL) &&
+      cleanSupabaseEnvValue(process.env.SUPABASE_SERVICE_ROLE_KEY),
   );
 }

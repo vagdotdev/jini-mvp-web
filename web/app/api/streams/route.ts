@@ -3,6 +3,16 @@ import { nanoid } from "nanoid";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getPublicAppUrl } from "@/lib/env";
 
+function friendlySupabaseKeyError(message: string): string {
+  const m = message.toLowerCase();
+  if (m.includes("invalid api key") || m.includes("jwt expired")) {
+    return (
+      "Supabase rejected the server key. In Vercel, set SUPABASE_SERVICE_ROLE_KEY to the service_role value from Supabase → Project Settings → API (long “secret” key — not the anon “public” key). Remove spaces, save, then Redeploy."
+    );
+  }
+  return message;
+}
+
 function checkCreateSecret(req: Request) {
   const required = process.env.JINI_STREAM_CREATE_SECRET;
   if (!required) return true;
@@ -30,7 +40,10 @@ export async function GET(req: Request) {
     .order("created_at", { ascending: false })
     .limit(25);
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json(
+      { error: friendlySupabaseKeyError(error.message) },
+      { status: 500 },
+    );
   }
   const streams = (data || []).map((row) => ({
     id: row.id,
@@ -104,7 +117,10 @@ export async function POST(req: Request) {
     .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json(
+      { error: friendlySupabaseKeyError(error.message) },
+      { status: 500 },
+    );
   }
 
   return NextResponse.json({
