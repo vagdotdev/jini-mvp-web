@@ -4,64 +4,56 @@ import { PolicyShell } from "@/components/site/policy-shell";
 
 export const metadata: Metadata = {
   title: "Refund policy · Jini",
-  description:
-    "How refunds work at Jini Live — clear, simple, and on your side.",
+  description: "Jini's refund policy — honest and straightforward.",
 };
 
 export default function RefundPage() {
   return (
     <PolicyShell eyebrow="Policy" title="Refunds">
       <p>
-        We want every Jini purchase to feel right. If something is off when your
-        order arrives, just message us within <strong>48 hours of delivery</strong>{" "}
-        and we will sort it out.
+        We want to be completely honest with you here. Right now, as a small
+        team just getting started, we do not offer refunds. Every item is sold
+        as-is, live on stream, exactly as you see it — and that is kind of the
+        whole magic of it.
+      </p>
+
+      <p>
+        We know that is a big ask of your trust, and we genuinely do not take
+        that lightly. We make sure what you see is what you get. Our host holds
+        it up, shows every angle, answers your questions live — so you can feel
+        confident before you buy.
+      </p>
+
+      <p>
+        That said — if something goes seriously wrong on our end (wrong item
+        shipped, arrived damaged), please reach out. We are humans, we make
+        mistakes, and we will always try to do right by you.
       </p>
 
       <section>
         <h2 className="mb-2 text-lg font-semibold text-zinc-900">
-          What we cover
-        </h2>
-        <ul className="list-disc space-y-1 pl-5">
-          <li>Wrong item delivered</li>
-          <li>Damaged on arrival (please share a photo)</li>
-          <li>Item significantly different from what was shown live</li>
-        </ul>
-      </section>
-
-      <section>
-        <h2 className="mb-2 text-lg font-semibold text-zinc-900">
-          What we cannot cover
-        </h2>
-        <ul className="list-disc space-y-1 pl-5">
-          <li>Change of mind after delivery (live shopping is final-sale by nature)</li>
-          <li>Minor colour or texture variation between screen and real life</li>
-          <li>Wear and tear after use</li>
-        </ul>
-      </section>
-
-      <section>
-        <h2 className="mb-2 text-lg font-semibold text-zinc-900">
-          How to reach us
+          Coming soon
         </h2>
         <p>
-          WhatsApp Manasa at{" "}
-          <Link
-            href="https://wa.me/919148917755"
-            className="font-medium text-violet-700 hover:underline"
-          >
-            +91 91489 17755
-          </Link>{" "}
-          with your order details and a quick photo if relevant.
+          A full returns and refund policy is something we are actively working
+          towards as we grow. We want Jini to feel as safe as any great shopping
+          experience — and we will get there.
         </p>
       </section>
 
       <section>
         <h2 className="mb-2 text-lg font-semibold text-zinc-900">
-          Refund processing
+          Talk to us
         </h2>
         <p>
-          Approved refunds are credited back to the original payment method
-          within <strong>5–7 working days</strong>.
+          For any concerns, please reach Manasa on WhatsApp at{" "}
+          <Link
+            href="https://wa.me/919148917755"
+            className="font-medium text-violet-700 hover:underline"
+          >
+            +91 91489 17755
+          </Link>
+          . We will always listen.
         </p>
       </section>
     </PolicyShell>

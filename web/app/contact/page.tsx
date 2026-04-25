@@ -4,15 +4,16 @@ import { PolicyShell } from "@/components/site/policy-shell";
 
 export const metadata: Metadata = {
   title: "Contact · Jini",
-  description: "Get in touch with the Jini team.",
+  description: "Say hello to the Jini team.",
 };
 
 export default function ContactPage() {
   return (
-    <PolicyShell eyebrow="Talk to us" title="Get in touch">
+    <PolicyShell eyebrow="Say hello" title="We are right here">
       <p>
-        We are a small team. The fastest way to reach us is on WhatsApp — you
-        will usually hear back the same day.
+        We are a tiny team and we genuinely love hearing from people. Whether
+        you have a question about an order, a piece of feedback, or just want to
+        say hi — please reach out. You will always be talking to a real person.
       </p>
 
       <section className="rounded-2xl border border-zinc-200 bg-white p-5">
@@ -41,16 +42,19 @@ export default function ContactPage() {
 
       <section>
         <h2 className="mb-2 text-lg font-semibold text-zinc-900">Hours</h2>
-        <p>Monday to Saturday, 10am – 7pm IST.</p>
+        <p>
+          Monday to Saturday, 10am – 7pm IST. We try to respond quickly but if
+          we miss you, we will always get back by end of day.
+        </p>
       </section>
 
       <section>
         <h2 className="mb-2 text-lg font-semibold text-zinc-900">
-          For order questions
+          For orders
         </h2>
         <p>
-          Please share your order details when you message us — it helps us
-          help you faster.
+          Drop us your order details when you message and we will get right on
+          it — no waiting, no scripts.
         </p>
       </section>
     </PolicyShell>

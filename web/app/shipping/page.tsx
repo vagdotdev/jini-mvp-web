@@ -4,35 +4,46 @@ import { PolicyShell } from "@/components/site/policy-shell";
 
 export const metadata: Metadata = {
   title: "Shipping · Jini",
-  description: "How Jini ships your order across India.",
+  description: "How Jini gets your order to you.",
 };
 
 export default function ShippingPage() {
   return (
     <PolicyShell eyebrow="Policy" title="Shipping">
       <p>
-        We ship across India. Once your order is paid, our team packs it
-        carefully and sends it through whichever courier reaches you fastest and
-        safest.
+        Honestly? Getting your order to you fast and safely is one of our
+        favourite parts of this. You just bought something live from a market
+        stall in Delhi — and now it is going to land at your doorstep. That
+        feels really special to us, and we treat every order that way.
       </p>
 
       <section>
         <h2 className="mb-2 text-lg font-semibold text-zinc-900">
-          Typical delivery time
+          How we ship
         </h2>
         <p>
-          Most orders arrive within <strong>4–7 working days</strong>. Remote
-          pin codes may take a little longer.
+          We pack your order ourselves and send it through whichever courier
+          gets it to you quickest. No rigid contracts, no cutting corners — just
+          whatever makes the most sense for your pin code.
         </p>
       </section>
 
       <section>
         <h2 className="mb-2 text-lg font-semibold text-zinc-900">
-          Tracking
+          Delivery time
         </h2>
         <p>
-          You will get an update with tracking details as soon as the parcel
-          leaves us.
+          Most orders reach you within <strong>4–7 working days</strong>. If
+          you are in a more remote area it might take a little longer — we will
+          keep you posted.
+        </p>
+      </section>
+
+      <section>
+        <h2 className="mb-2 text-lg font-semibold text-zinc-900">Tracking</h2>
+        <p>
+          Once your parcel is out the door, we will send you tracking details so
+          you always know where it is.
         </p>
       </section>
 
@@ -41,24 +52,24 @@ export default function ShippingPage() {
           Shipping charges
         </h2>
         <p>
-          Charges (if any) are shown clearly at checkout before you pay. No
-          surprises.
+          Any charges will be shown clearly at checkout — no surprises at the
+          end, ever.
         </p>
       </section>
 
       <section>
         <h2 className="mb-2 text-lg font-semibold text-zinc-900">
-          Need help with an order?
+          Questions about your order?
         </h2>
         <p>
-          WhatsApp Manasa at{" "}
+          Just WhatsApp Manasa at{" "}
           <Link
             href="https://wa.me/919148917755"
             className="font-medium text-violet-700 hover:underline"
           >
             +91 91489 17755
           </Link>{" "}
-          and we will personally check on it.
+          — we will personally check on it for you.
         </p>
       </section>
     </PolicyShell>
