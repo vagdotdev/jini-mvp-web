@@ -26,6 +26,7 @@ export function CompanionInventory({
   const [maxActive, setMaxActive] = useState(4);
   const [loading, setLoading] = useState(true);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const isDemo = token.startsWith("demo-buddy-");
@@ -70,7 +71,6 @@ export function CompanionInventory({
 
   async function remove(id: string) {
     if (isDemo) return;
-    if (!window.confirm("Remove this item from the live stream?")) return;
     setRemovingId(id);
     setError(null);
     try {
@@ -86,7 +86,20 @@ export function CompanionInventory({
       await load();
     } finally {
       setRemovingId(null);
+      setConfirmingId(null);
     }
+  }
+
+  function handleRemoveTap(id: string) {
+    if (isDemo) return;
+    if (confirmingId === id) {
+      void remove(id);
+      return;
+    }
+    setConfirmingId(id);
+    window.setTimeout(() => {
+      setConfirmingId((curr) => (curr === id ? null : curr));
+    }, 3000);
   }
 
   if (isDemo) {
@@ -161,16 +174,25 @@ export function CompanionInventory({
               </div>
               <button
                 type="button"
-                onClick={() => void remove(item.id)}
-                disabled={removingId === item.id || item.status === "locked"}
-                className="rounded-lg border border-rose-200 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
+                onClick={() => handleRemoveTap(item.id)}
+                disabled={removingId === item.id}
+                className={[
+                  "rounded-lg px-3 py-1.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50",
+                  confirmingId === item.id
+                    ? "bg-rose-600 text-white hover:bg-rose-500"
+                    : "border border-rose-200 text-rose-700 hover:bg-rose-50",
+                ].join(" ")}
                 title={
                   item.status === "locked"
-                    ? "Locked by a buyer; release first"
+                    ? "A viewer reserved this — removing will cancel their hold"
                     : "Remove from stream"
                 }
               >
-                {removingId === item.id ? "Removing…" : "Remove"}
+                {removingId === item.id
+                  ? "Removing…"
+                  : confirmingId === item.id
+                    ? "Tap again to confirm"
+                    : "Remove"}
               </button>
             </li>
           ))}

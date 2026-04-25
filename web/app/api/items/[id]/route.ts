@@ -60,12 +60,17 @@ export const DELETE = wrapRoute(
 
     const { error: updateError } = await admin
       .from("stream_items")
-      .update({ status: "cancelled", updated_at: new Date().toISOString() })
+      .update({
+        status: "cancelled",
+        locked_by: null,
+        lock_expires_at: null,
+        updated_at: new Date().toISOString(),
+      })
       .eq("id", id);
     if (updateError) {
       return NextResponse.json({ error: updateError.message }, { status: 500 });
     }
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, was_locked: item.status === "locked" });
   },
 );

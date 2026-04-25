@@ -5,6 +5,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { LiveStreamChat } from "@/components/stream/live-stream-chat";
 import { LiveVideoStage } from "@/components/stream/live-video-stage";
+import {
+  PurchaseSuccessOverlay,
+  type PurchaseSuccess,
+} from "@/components/stream/purchase-success-overlay";
 
 type StreamItem = {
   id: string;
@@ -58,6 +62,8 @@ export function LiveRoomShell({ slug }: { slug: string }) {
   const [lockingId, setLockingId] = useState<string | null>(null);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [buyMessage, setBuyMessage] = useState<string | null>(null);
+  const [purchaseSuccess, setPurchaseSuccess] =
+    useState<PurchaseSuccess | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
   const [unread, setUnread] = useState(0);
   const [statusDismissed, setStatusDismissed] = useState(false);
@@ -169,7 +175,8 @@ export function LiveRoomShell({ slug }: { slug: string }) {
             setBuyMessage("Sign in to complete this purchase.");
           } else if (res.status === 409) {
             setBuyMessage(
-              json.error || "Hold expired — tap Buy now to reserve again.",
+              json.error ||
+                "Sorry — seller pulled this item. Try another one.",
             );
           } else {
             setBuyMessage(json.error || "Could not confirm purchase.");
@@ -192,9 +199,13 @@ export function LiveRoomShell({ slug }: { slug: string }) {
         const balancePaise = Number(json.new_balance_paise ?? 0);
         const balance = balancePaise / 100;
         setWalletBalancePaise(balancePaise);
-        setBuyMessage(
-          `Purchased ✓ ₹${paid} debited · wallet ₹${balance.toLocaleString("en-IN")}`,
-        );
+        setPurchaseSuccess({
+          itemName: item?.name ?? "Your item",
+          imageUrl: item?.image_display_url ?? null,
+          paidInr: paid,
+          balanceInr: balance,
+        });
+        setBuyMessage(null);
       } catch {
         setBuyMessage("Network error. Try again.");
       } finally {
@@ -602,6 +613,11 @@ export function LiveRoomShell({ slug }: { slug: string }) {
           </span>
         ) : null}
       </button>
+
+      <PurchaseSuccessOverlay
+        data={purchaseSuccess}
+        onDismiss={() => setPurchaseSuccess(null)}
+      />
 
       {chatOpen ? (
         <div
