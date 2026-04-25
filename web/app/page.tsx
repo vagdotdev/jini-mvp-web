@@ -64,16 +64,12 @@ export default function Home() {
           Jini Live
         </p>
         <h1 className="mt-2 text-4xl font-semibold tracking-tight text-zinc-900 sm:text-5xl">
-          Live from the market. Buy in seconds.
+          Sarojini market, to your home.
         </h1>
       </div>
       <JoinForm />
       <div className="max-w-xl text-lg leading-relaxed text-zinc-600">
-        <p>A new wave of shopping in India.</p>
-        <p className="mt-2">We’re building a live shopping platform.</p>
-        <p className="mt-2">
-          Starting with India&apos;s most loved Sarojini Nagar Market
-        </p>
+        <p>Jini - a new wave of shopping in India.</p>
       </div>
     </div>
   );
