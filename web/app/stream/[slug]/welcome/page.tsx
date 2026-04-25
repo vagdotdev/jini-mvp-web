@@ -51,7 +51,7 @@ export default async function StreamWelcomePage({ params }: PageProps) {
               Continue — log in and address
             </Link>
             <Link
-              href="/"
+              href="/dev"
               className="inline-flex min-h-12 items-center justify-center rounded-2xl border border-zinc-200 bg-white px-6 py-3 text-center text-sm font-medium text-zinc-800 hover:bg-zinc-50"
             >
               Back to home

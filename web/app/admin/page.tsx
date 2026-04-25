@@ -422,7 +422,7 @@ export default function AdminControlPage() {
         </section>
 
         <p className="text-center text-xs text-zinc-600">
-          <Link href="/" className="font-medium text-violet-700 hover:underline">
+          <Link href="/dev" className="font-medium text-violet-700 hover:underline">
             Back home
           </Link>
         </p>

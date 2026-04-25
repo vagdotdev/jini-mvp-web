@@ -60,7 +60,7 @@ export default function AccountPage() {
       <div className="mx-auto max-w-lg px-4 py-16">
         <p className="text-red-700">{err || "Something went wrong."}</p>
         <p className="mt-4 text-sm text-zinc-600">
-          <Link href="/" className="font-medium text-violet-700 hover:underline">
+          <Link href="/dev" className="font-medium text-violet-700 hover:underline">
             Back home
           </Link>
         </p>
@@ -133,7 +133,7 @@ export default function AccountPage() {
 
         <div className="flex flex-col gap-3 sm:flex-row">
           <Link
-            href="/"
+            href="/dev"
             className="inline-flex min-h-11 items-center justify-center rounded-xl bg-violet-600 px-4 text-sm font-semibold text-white hover:bg-violet-700"
           >
             Back home

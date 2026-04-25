@@ -1,4 +1,60 @@
-import Link from "next/link";
+"use client";
+
+import { useState } from "react";
+
+function JoinForm() {
+  const [link, setLink] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  function handleJoin() {
+    setError(null);
+    const trimmed = link.trim();
+    if (!trimmed) {
+      setError("Please paste a stream link first.");
+      return;
+    }
+    const withScheme =
+      trimmed.startsWith("http://") || trimmed.startsWith("https://")
+        ? trimmed
+        : `https://${trimmed}`;
+    let parsed: URL;
+    try {
+      parsed = new URL(withScheme);
+    } catch {
+      setError("That doesn't look like a valid link.");
+      return;
+    }
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      setError("Only http and https links are allowed.");
+      return;
+    }
+    window.location.assign(parsed.href);
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <input
+          type="url"
+          value={link}
+          onChange={(e) => setLink(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleJoin()}
+          placeholder="Paste your stream link here"
+          className="w-full rounded-xl border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-violet-500 sm:max-w-sm"
+          autoComplete="off"
+          spellCheck={false}
+        />
+        <button
+          onClick={handleJoin}
+          className="inline-flex items-center justify-center rounded-xl bg-violet-600 px-6 py-3 text-sm font-semibold text-white shadow hover:bg-violet-700 active:bg-violet-800"
+        >
+          Join
+        </button>
+      </div>
+      {error && <p className="text-sm text-red-600">{error}</p>}
+    </div>
+  );
+}
 
 export default function Home() {
   return (
@@ -16,50 +72,7 @@ export default function Home() {
           product we are building for your Sarojini pilot.
         </p>
       </div>
-      <div className="flex flex-wrap gap-4">
-        <Link
-          href="/account"
-          className="inline-flex items-center justify-center rounded-xl border border-violet-200 bg-violet-50 px-6 py-3 text-sm font-semibold text-violet-900 hover:bg-violet-100"
-        >
-          My account
-        </Link>
-        <Link
-          href="/admin"
-          className="inline-flex items-center justify-center rounded-xl bg-violet-600 px-6 py-3 text-sm font-semibold text-white shadow hover:bg-violet-700"
-        >
-          Open control panel
-        </Link>
-        <a
-          href="https://supabase.com/dashboard"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center justify-center rounded-xl border border-zinc-300 px-6 py-3 text-sm font-medium text-zinc-800 hover:bg-zinc-50"
-        >
-          Open Supabase (for setup)
-        </a>
-      </div>
-      <section className="rounded-2xl border border-zinc-200 bg-zinc-50/80 p-6 text-sm text-zinc-700">
-        <h2 className="font-semibold text-zinc-900">What is running today</h2>
-        <ul className="mt-3 list-inside list-disc space-y-2">
-          <li>
-            Next.js app in the <code className="rounded bg-white px-1">web/</code>{" "}
-            folder
-          </li>
-          <li>
-            SQL migrations in{" "}
-            <code className="rounded bg-white px-1">web/supabase/migrations/</code>{" "}
-            — paste into Supabase SQL editor when your project exists
-          </li>
-          <li>
-            <strong>Create stream</strong> API +{" "}
-            <Link href="/admin" className="text-violet-600 hover:underline">
-              /admin
-            </Link>{" "}
-            page (three links after you connect env vars)
-          </li>
-          <li>Stub routes: welcome, onboarding, live, host, companion</li>
-        </ul>
-      </section>
+      <JoinForm />
     </div>
   );
 }
