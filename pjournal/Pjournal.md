@@ -414,3 +414,53 @@ All future updates should be appended here as new dated entries.
   - `### Risks / Open Questions`
   - `### Next`
 
+---
+
+## 2026-04-26 01:52 (Sunday) — Host Music + Purchase Audio Stabilization
+
+### Done
+
+- Added purchase sound cues:
+  - Host purchase cue now plays uploaded file `web/public/payment done.mp3.mpeg`.
+  - Viewer purchase cue remains a soft generated tone.
+- Added stream music controls on host live page:
+  - `Start song` = play selected song from start with fade-in.
+  - `Transition` = jump to middle segment (20-80%) of selected song with fade-out/fade-in.
+  - `Stop music` = fade-out + stop + host mic restore.
+- Enforced pilot audio policy while music plays:
+  - host mic auto-mutes while music is active.
+  - fixed music level set to 40% (volume slider removed).
+- Added song selection flow:
+  - default song is `Masakali`.
+  - `Switch song` only changes selected song (does not auto-play).
+  - song list auto-loads from `web/public/audio` and supports newly dropped files.
+- Added audio tracks API:
+  - `GET /api/audio/tracks` returns discoverable music files from `public/audio`.
+  - fallback song list added so host UI never initializes to a dead empty state.
+- Added reliability fixes:
+  - interrupt-safe action handling for Start/Transition/Stop to prevent stuck button states.
+  - action timeout watchdog with clean UI recovery.
+- Host chat panel UX fixed:
+  - in host right panel mode, message composer is always visible at bottom (normal chat behavior).
+- Local link reliability cleanup:
+  - normalized local app URL back to `http://localhost:3000` to avoid dev cross-origin/HMR host issues.
+
+### Decisions
+
+- Keep purchase success and stream music controls lightweight and operator-first.
+- Keep host purchase cue file-based for explicit human-noticeable feedback.
+- Keep transition scoped to currently selected song (no random song changes on transition).
+- Keep fixed 40% music level for now to reduce runtime control complexity.
+
+### Risks / Open Questions
+
+- Browser media behavior still varies by device; if edge cases remain, add temporary in-panel debug state traces for action step timing.
+- Some local logs still show `/api/streams/join 500` intermittently for viewer join flow; separate issue from music controls, worth hardening next.
+- If production wants stricter audio consistency, consider moving music track publication and mic mute flow to a dedicated host audio controller module with explicit state machine tests.
+
+### Next
+
+- Optional: add tiny "Now playing mm:ss" readout for host confidence during transition moments.
+- Optional: expose a configurable fade profile preset (gentle/normal/fast) once operator flow is stable.
+- Keep validating on actual host phone + one viewer device before each live session.
+

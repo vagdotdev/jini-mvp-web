@@ -9,6 +9,10 @@ import {
   PurchaseSuccessOverlay,
   type PurchaseSuccess,
 } from "@/components/stream/purchase-success-overlay";
+import {
+  playViewerPurchaseChime,
+  primePurchaseAudio,
+} from "@/lib/sounds/purchase-chimes";
 
 type StreamItem = {
   id: string;
@@ -68,6 +72,7 @@ export function LiveRoomShell({ slug }: { slug: string }) {
   const [unread, setUnread] = useState(0);
   const [statusDismissed, setStatusDismissed] = useState(false);
   const chatOpenRef = useRef(false);
+  const seenPurchaseMessageIdsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     chatOpenRef.current = chatOpen;
   }, [chatOpen]);
@@ -395,10 +400,63 @@ export function LiveRoomShell({ slug }: { slug: string }) {
     };
   }, [stream?.id]);
 
+  useEffect(() => {
+    const handleUnlockAudio = () => {
+      void primePurchaseAudio();
+      window.removeEventListener("pointerdown", handleUnlockAudio);
+      window.removeEventListener("touchstart", handleUnlockAudio);
+    };
+    window.addEventListener("pointerdown", handleUnlockAudio, { once: true });
+    window.addEventListener("touchstart", handleUnlockAudio, {
+      once: true,
+      passive: true,
+    });
+    return () => {
+      window.removeEventListener("pointerdown", handleUnlockAudio);
+      window.removeEventListener("touchstart", handleUnlockAudio);
+    };
+  }, []);
+
+  useEffect(() => {
+    const supabase = createBrowserSupabaseClient();
+    if (!supabase || !stream?.id) return;
+    const channel = supabase
+      .channel(`stream-purchase-sound:${stream.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "chat_messages",
+          filter: `stream_id=eq.${stream.id}`,
+        },
+        (payload) => {
+          const row = payload.new as {
+            id?: string;
+            message_type?: string;
+            user_id?: string | null;
+          };
+          if (!row?.id || row.message_type !== "purchase") return;
+          if (seenPurchaseMessageIdsRef.current.has(row.id)) return;
+          seenPurchaseMessageIdsRef.current.add(row.id);
+          if (row.user_id && myUserId && row.user_id === myUserId) return;
+          playViewerPurchaseChime();
+        },
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [myUserId, stream?.id]);
+
   const visibleItems = useMemo(
     () => items.filter((item) => item.status !== "sold" && item.status !== "cancelled"),
     [items],
   );
+
+  useEffect(() => {
+    seenPurchaseMessageIdsRef.current.clear();
+  }, [stream?.id]);
 
   return (
     <div className="min-h-full bg-black text-white">

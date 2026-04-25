@@ -8,6 +8,8 @@ import {
   LiveKitRoom,
   ParticipantTile,
   RoomAudioRenderer,
+  useLocalParticipant,
+  useRoomContext,
   useTracks,
 } from "@livekit/components-react";
 import { LiveKitSetupNotice } from "@/components/stream/livekit-setup-notice";
@@ -16,8 +18,8 @@ import {
   LIVEKIT_NOT_CONFIGURED_CODE,
   type LiveKitTokenErrorBody,
 } from "@/lib/livekit/setup-messages";
-import { Track } from "livekit-client";
-import { useCallback, useEffect, useState } from "react";
+import { LocalAudioTrack, Track } from "livekit-client";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 type HostControlProps = {
   token: string;
@@ -140,6 +142,8 @@ export function HostControl({ token }: HostControlProps) {
             Live
           </div>
 
+          <HostMusicControls />
+
           {/* Controls floating center-bottom */}
           <div className="absolute inset-x-0 bottom-6 z-20 flex justify-center">
             <div className="rounded-2xl bg-black/60 px-3 py-1.5 backdrop-blur ring-1 ring-white/10">
@@ -184,5 +188,408 @@ function HostStage() {
     <GridLayout tracks={tracks} style={{ height: "100%", width: "100%" }}>
       <ParticipantTile />
     </GridLayout>
+  );
+}
+
+function wait(ms: number) {
+  return new Promise<void>((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const t = window.setTimeout(() => reject(new Error(message)), ms);
+    promise.then(
+      (value) => {
+        window.clearTimeout(t);
+        resolve(value);
+      },
+      (err) => {
+        window.clearTimeout(t);
+        reject(err);
+      },
+    );
+  });
+}
+
+const MUSIC_LEVEL = 0.4;
+const FADE_IN_MS = 1800;
+const FADE_OUT_MS = 900;
+type AudioTrack = { file: string; label: string; url: string };
+const FALLBACK_TRACKS: AudioTrack[] = [
+  { file: "Masakali.mp3", label: "Masakali", url: "/audio/Masakali.mp3" },
+  { file: "Follow-God.mp3", label: "Follow God", url: "/audio/Follow-God.mp3" },
+  { file: "Homecoming.mpeg", label: "Homecoming", url: "/audio/Homecoming.mpeg" },
+];
+
+function HostMusicControls() {
+  useRoomContext();
+  const { localParticipant } = useLocalParticipant();
+  const [tracks, setTracks] = useState<AudioTrack[]>(FALLBACK_TRACKS);
+  const [trackIdx, setTrackIdx] = useState(0);
+  const [musicPlaying, setMusicPlaying] = useState(false);
+  const [busy, setBusy] = useState<null | "start" | "transition" | "stop">(null);
+  const [musicError, setMusicError] = useState<string | null>(null);
+
+  const audioElRef = useRef<HTMLAudioElement | null>(null);
+  const ctxRef = useRef<AudioContext | null>(null);
+  const gainRef = useRef<GainNode | null>(null);
+  const destRef = useRef<MediaStreamAudioDestinationNode | null>(null);
+  const publishedTrackRef = useRef<LocalAudioTrack | null>(null);
+  const mutedByMusicRef = useRef(false);
+  const mountedRef = useRef(true);
+  const actionSeqRef = useRef(0);
+  const currentTrack = tracks[trackIdx] ?? null;
+
+  const beginAction = useCallback(
+    (name: "start" | "transition" | "stop") => {
+      actionSeqRef.current += 1;
+      setBusy(name);
+      setMusicError(null);
+      return actionSeqRef.current;
+    },
+    [],
+  );
+  const isStaleAction = useCallback((id: number) => id !== actionSeqRef.current, []);
+  const finishAction = useCallback((id: number) => {
+    if (!mountedRef.current) return;
+    if (id === actionSeqRef.current) setBusy(null);
+  }, []);
+
+  // Safety valve: if any async media op gets stuck unexpectedly, recover controls.
+  useEffect(() => {
+    if (!busy) return;
+    const t = window.setTimeout(() => {
+      if (!mountedRef.current) return;
+      setBusy(null);
+      setMusicError((prev) => prev || "Action timed out. Please tap again.");
+    }, 12000);
+    return () => window.clearTimeout(t);
+  }, [busy]);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const res = await fetch("/api/audio/tracks", { cache: "no-store" });
+        const json = (await res.json().catch(() => ({}))) as {
+          tracks?: AudioTrack[];
+        };
+        const list = (json.tracks || []).filter((t) => t.url);
+        if (!mountedRef.current) return;
+        const merged = [...list];
+        for (const fallback of FALLBACK_TRACKS) {
+          if (!merged.some((t) => t.file.toLowerCase() === fallback.file.toLowerCase())) {
+            merged.push(fallback);
+          }
+        }
+        const masakaliIdx = merged.findIndex(
+          (t) => t.file.toLowerCase() === "masakali.mp3",
+        );
+        setTracks(merged);
+        setTrackIdx(masakaliIdx >= 0 ? masakaliIdx : 0);
+      } catch {
+        if (!mountedRef.current) return;
+        setTracks(FALLBACK_TRACKS);
+        setTrackIdx(0);
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+      const audioEl = audioElRef.current;
+      if (audioEl) {
+        audioEl.pause();
+      }
+      const published = publishedTrackRef.current;
+      if (published && localParticipant) {
+        void localParticipant.unpublishTrack(published.mediaStreamTrack);
+      }
+      publishedTrackRef.current = null;
+      const rawTrack = destRef.current?.stream.getAudioTracks()[0];
+      rawTrack?.stop();
+      ctxRef.current?.close().catch(() => undefined);
+      ctxRef.current = null;
+    };
+  }, [localParticipant]);
+
+  const ensurePipeline = useCallback(async (forcedTrack?: AudioTrack) => {
+    const track = forcedTrack ?? currentTrack;
+    if (!localParticipant) throw new Error("Host audio not ready yet.");
+    if (!track) throw new Error("No songs available. Check /public/audio.");
+    if (!audioElRef.current) {
+      const audio = new Audio(track.url);
+      audio.preload = "auto";
+      audio.crossOrigin = "anonymous";
+      audioElRef.current = audio;
+    }
+
+    const audio = audioElRef.current;
+    if (!audio.src.includes(track.url)) {
+      audio.pause();
+      audio.src = track.url;
+      audio.load();
+    }
+    if (!ctxRef.current) {
+      const Ctx = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!Ctx) throw new Error("AudioContext not supported on this device.");
+      const ctx = new Ctx();
+      const source = ctx.createMediaElementSource(audio);
+      const gain = ctx.createGain();
+      const destination = ctx.createMediaStreamDestination();
+      gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+      source.connect(gain);
+      gain.connect(destination);
+      ctxRef.current = ctx;
+      gainRef.current = gain;
+      destRef.current = destination;
+
+      const rawTrack = destination.stream.getAudioTracks()[0];
+      if (!rawTrack) throw new Error("Could not create music track.");
+      const localTrack = new LocalAudioTrack(rawTrack);
+      await withTimeout(
+        localParticipant.publishTrack(localTrack.mediaStreamTrack),
+        5000,
+        "Music track publish timed out. Try tapping Start again.",
+      );
+      publishedTrackRef.current = localTrack;
+    }
+
+    const ctx = ctxRef.current;
+    if (ctx.state !== "running") {
+      await ctx.resume();
+    }
+
+    if (audio.readyState < 1) {
+      await withTimeout(
+        new Promise<void>((resolve, reject) => {
+        const onLoaded = () => {
+          cleanup();
+          resolve();
+        };
+        const onError = () => {
+          cleanup();
+          reject(new Error(`Could not load ${track.url}`));
+        };
+        const cleanup = () => {
+          audio.removeEventListener("loadedmetadata", onLoaded);
+          audio.removeEventListener("error", onError);
+        };
+        audio.addEventListener("loadedmetadata", onLoaded);
+        audio.addEventListener("error", onError);
+        audio.load();
+        }),
+        5000,
+        `Music file took too long to load. Check ${track.url}`,
+      );
+    }
+
+    return {
+      audio,
+      ctx,
+      gain: gainRef.current!,
+    };
+  }, [localParticipant, currentTrack]);
+
+  const rampGain = useCallback((target: number, fadeMs = 320) => {
+    const ctx = ctxRef.current;
+    const gain = gainRef.current;
+    if (!ctx || !gain) return;
+    const now = ctx.currentTime;
+    const current = Math.max(gain.gain.value, 0.0001);
+    gain.gain.cancelScheduledValues(now);
+    gain.gain.setValueAtTime(current, now);
+    gain.gain.linearRampToValueAtTime(Math.max(target, 0.0001), now + fadeMs / 1000);
+  }, []);
+
+  const fadeGainTo = useCallback(
+    async (target: number, fadeMs: number) => {
+      rampGain(target, fadeMs);
+      await wait(fadeMs + 40);
+    },
+    [rampGain],
+  );
+
+  const muteMicForMusic = useCallback(async () => {
+    if (!localParticipant || mutedByMusicRef.current) return;
+    try {
+      await localParticipant.setMicrophoneEnabled(false);
+      mutedByMusicRef.current = true;
+    } catch {
+      // Non-fatal
+    }
+  }, [localParticipant]);
+
+  const restoreMicAfterMusic = useCallback(async () => {
+    if (!localParticipant || !mutedByMusicRef.current) return;
+    try {
+      await localParticipant.setMicrophoneEnabled(true);
+    } catch {
+      // Non-fatal
+    } finally {
+      mutedByMusicRef.current = false;
+    }
+  }, [localParticipant]);
+
+  const handleStart = useCallback(async () => {
+    const actionId = beginAction("start");
+    try {
+      const { audio } = await withTimeout(
+        ensurePipeline(),
+        6000,
+        "Music setup timed out. Try again.",
+      );
+      if (isStaleAction(actionId)) return;
+      await muteMicForMusic();
+      if (isStaleAction(actionId)) return;
+      await fadeGainTo(0.0001, FADE_OUT_MS);
+      if (isStaleAction(actionId)) return;
+      audio.currentTime = 0;
+      await withTimeout(
+        audio.play(),
+        4000,
+        "Music could not start in time. Tap again after stream is fully live.",
+      );
+      if (isStaleAction(actionId)) return;
+      await fadeGainTo(Math.max(MUSIC_LEVEL, 0.0001), FADE_IN_MS);
+      if (!isStaleAction(actionId) && mountedRef.current) setMusicPlaying(true);
+    } catch (err) {
+      if (!isStaleAction(actionId) && mountedRef.current) {
+        setMusicError(err instanceof Error ? err.message : "Music failed to start.");
+      }
+    } finally {
+      finishAction(actionId);
+    }
+  }, [beginAction, ensurePipeline, fadeGainTo, finishAction, isStaleAction, muteMicForMusic]);
+
+  const handleTransition = useCallback(async () => {
+    const actionId = beginAction("transition");
+    try {
+      const { audio } = await withTimeout(
+        ensurePipeline(),
+        6000,
+        "Music setup timed out. Try again.",
+      );
+      if (isStaleAction(actionId)) return;
+      const duration = Number.isFinite(audio.duration) ? audio.duration : 0;
+      if (duration <= 0) {
+        throw new Error("Track duration not ready yet. Tap Transition again.");
+      }
+      const start = duration * 0.2;
+      const end = duration * 0.8;
+      const current = Number.isFinite(audio.currentTime) ? audio.currentTime : 0;
+      const minJump = Math.min(12, Math.max(4, duration * 0.12));
+      let randomPoint = start + Math.random() * (end - start);
+      for (let i = 0; i < 6; i += 1) {
+        if (Math.abs(randomPoint - current) >= minJump) break;
+        randomPoint = start + Math.random() * (end - start);
+      }
+      await muteMicForMusic();
+      if (isStaleAction(actionId)) return;
+      await fadeGainTo(0.0001, FADE_OUT_MS);
+      if (isStaleAction(actionId)) return;
+      audio.currentTime = Math.max(0, randomPoint);
+      await withTimeout(
+        audio.play(),
+        4000,
+        "Transition could not start. Tap again.",
+      );
+      if (isStaleAction(actionId)) return;
+      await fadeGainTo(Math.max(MUSIC_LEVEL, 0.0001), FADE_IN_MS);
+      if (!isStaleAction(actionId) && mountedRef.current) setMusicPlaying(true);
+    } catch (err) {
+      if (!isStaleAction(actionId) && mountedRef.current) {
+        setMusicError(err instanceof Error ? err.message : "Transition failed.");
+      }
+    } finally {
+      finishAction(actionId);
+    }
+  }, [beginAction, ensurePipeline, fadeGainTo, finishAction, isStaleAction, muteMicForMusic]);
+
+  const handleStop = useCallback(async () => {
+    const actionId = beginAction("stop");
+    try {
+      const audio = audioElRef.current;
+      if (audio && !audio.paused) {
+        await fadeGainTo(0.0001, FADE_OUT_MS);
+        if (isStaleAction(actionId)) return;
+        audio.pause();
+        // Keep stop deterministic so restart/transition behaves consistently.
+        if (Number.isFinite(audio.currentTime)) {
+          audio.currentTime = Math.max(0, audio.currentTime);
+        }
+      }
+      await restoreMicAfterMusic();
+      if (!isStaleAction(actionId) && mountedRef.current) setMusicPlaying(false);
+    } catch (err) {
+      if (!isStaleAction(actionId) && mountedRef.current) {
+        setMusicError(err instanceof Error ? err.message : "Could not stop music.");
+      }
+    } finally {
+      finishAction(actionId);
+    }
+  }, [beginAction, fadeGainTo, finishAction, isStaleAction, restoreMicAfterMusic]);
+
+  const handleNextSong = useCallback(() => {
+    if (!tracks.length || busy) return;
+    const nextIdx = (trackIdx + 1) % tracks.length;
+    setTrackIdx(nextIdx);
+  }, [busy, trackIdx, tracks.length]);
+
+  return (
+    <div className="absolute right-3 top-3 z-30 w-[min(22rem,calc(100vw-1.25rem))] rounded-3xl border border-white/25 bg-gradient-to-br from-white/18 via-white/10 to-white/5 p-3.5 text-white shadow-2xl shadow-black/40 backdrop-blur-xl md:right-4 md:top-4 md:w-96">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/70">
+        Music
+      </p>
+      <div className="mt-2.5 flex items-center gap-2">
+        <p className="min-w-0 flex-1 truncate rounded-xl border border-white/20 bg-black/30 px-3 py-2 text-xs font-semibold text-white/95">
+          {currentTrack?.label || "No song"}
+        </p>
+        <button
+          type="button"
+          disabled={busy !== null || tracks.length <= 1}
+          onClick={handleNextSong}
+          className="rounded-xl border border-white/20 bg-white/15 px-3 py-2 text-xs font-semibold text-white hover:bg-white/25 disabled:opacity-45"
+        >
+          Switch song
+        </button>
+      </div>
+      <div className="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <button
+          type="button"
+          disabled={busy === "start"}
+          onClick={() => void handleStart()}
+          className="rounded-xl bg-violet-500/90 px-3 py-2 text-xs font-semibold text-white shadow-lg shadow-violet-900/35 hover:bg-violet-400 disabled:opacity-50"
+        >
+          {busy === "start" ? "Starting…" : "Start song"}
+        </button>
+        <button
+          type="button"
+          disabled={busy === "transition"}
+          onClick={() => void handleTransition()}
+          className="rounded-xl bg-sky-500/85 px-3 py-2 text-xs font-semibold text-white shadow-lg shadow-sky-900/35 hover:bg-sky-400 disabled:opacity-50"
+        >
+          {busy === "transition" ? "Shifting…" : "Transition"}
+        </button>
+        <button
+          type="button"
+          disabled={busy === "stop"}
+          onClick={() => void handleStop()}
+          className="rounded-xl bg-rose-500/90 px-3 py-2 text-xs font-semibold text-white shadow-lg shadow-rose-900/35 hover:bg-rose-400 disabled:opacity-45"
+        >
+          {busy === "stop" ? "Stopping…" : "Stop music"}
+        </button>
+      </div>
+      <p className="mt-2 text-[10px] text-white/70">
+        {currentTrack?.label || "No song"} selected · host mic auto-mutes while music plays · fixed level 40%.
+      </p>
+      {musicError ? (
+        <p className="mt-2 rounded-xl border border-amber-200/30 bg-amber-500/20 px-2.5 py-2 text-[11px] text-amber-50">
+          {musicError}
+        </p>
+      ) : null}
+    </div>
   );
 }

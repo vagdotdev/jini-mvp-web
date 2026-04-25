@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { playHostPurchaseChime } from "@/lib/sounds/purchase-chimes";
 
 const POLL_MS = 1800;
 const MAX_VISIBLE = 4;
@@ -82,6 +83,8 @@ export function HostChatTicker({ hostToken, variant, slug }: HostChatTickerProps
   const sinceRef = useRef<string | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const seenMessageIdsRef = useRef<Set<string>>(new Set());
+  const bootstrappedRef = useRef(false);
 
   const pollOnce = useCallback(
     async (signal?: AbortSignal) => {
@@ -102,13 +105,33 @@ export function HostChatTicker({ hostToken, variant, slug }: HostChatTickerProps
         if (json.messages?.length) {
           setMessages((prev) => {
             const merged = [...prev];
+            let purchaseChimeCount = 0;
             for (const row of json.messages!) {
-              if (!merged.some((m) => m.id === row.id)) merged.push(row);
+              if (merged.some((m) => m.id === row.id)) continue;
+              merged.push(row);
+              if (
+                bootstrappedRef.current &&
+                !seenMessageIdsRef.current.has(row.id) &&
+                row.message_type === "purchase"
+              ) {
+                purchaseChimeCount += 1;
+              }
+              seenMessageIdsRef.current.add(row.id);
             }
             const trimmed =
               merged.length > MAX_HISTORY
                 ? merged.slice(merged.length - MAX_HISTORY)
                 : merged;
+            if (!bootstrappedRef.current) {
+              for (const row of trimmed) {
+                seenMessageIdsRef.current.add(row.id);
+              }
+              bootstrappedRef.current = true;
+            } else if (purchaseChimeCount > 0) {
+              for (let i = 0; i < purchaseChimeCount; i += 1) {
+                playHostPurchaseChime();
+              }
+            }
             const lastTs = trimmed[trimmed.length - 1]?.created_at;
             if (lastTs) sinceRef.current = lastTs;
             return trimmed;
@@ -356,7 +379,7 @@ export function HostChatTicker({ hostToken, variant, slug }: HostChatTickerProps
           <p className="mt-2 text-[11px] text-amber-200/90">{error}</p>
         ) : null}
 
-        {replyOpen ? (
+        {isPanel || replyOpen ? (
           <form
             onSubmit={(e) => void handleSend(e)}
             className="mt-2 flex items-end gap-2"
@@ -371,13 +394,15 @@ export function HostChatTicker({ hostToken, variant, slug }: HostChatTickerProps
               placeholder="Reply as Host…"
               className="min-h-10 w-full resize-none rounded-xl border border-white/15 bg-black/55 px-3 py-2 text-sm text-white outline-none placeholder:text-white/45 focus:border-violet-500/60"
             />
-            <button
-              type="button"
-              onClick={closeReply}
-              className="shrink-0 rounded-xl bg-white/10 px-3 py-2 text-xs font-medium text-white/85 hover:bg-white/15"
-            >
-              Close
-            </button>
+            {!isPanel ? (
+              <button
+                type="button"
+                onClick={closeReply}
+                className="shrink-0 rounded-xl bg-white/10 px-3 py-2 text-xs font-medium text-white/85 hover:bg-white/15"
+              >
+                Close
+              </button>
+            ) : null}
             <button
               type="submit"
               disabled={sending || !draft.trim()}
