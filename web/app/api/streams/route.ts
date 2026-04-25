@@ -30,7 +30,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const admin = createAdminClient();
-  const base = getPublicAppUrl();
+  const base = getPublicAppUrl(req);
   if (!admin) {
     return NextResponse.json({ demo: true, streams: [] });
   }
@@ -155,7 +155,7 @@ export async function POST(req: Request) {
   const host_token = nanoid(32);
   const buddy_token = nanoid(32);
   const livekit_room_name = `jini-${slug}`;
-  const base = getPublicAppUrl();
+  const base = getPublicAppUrl(req);
 
   if (!admin) {
     return NextResponse.json({

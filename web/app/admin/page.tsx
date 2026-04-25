@@ -202,7 +202,7 @@ export default function AdminControlPage() {
               placeholder="e.g. Sarojini Y2K tops"
             />
             <label className="mt-5 block text-sm font-semibold text-zinc-900">
-              Create secret
+              Enter secret
               <span className="font-normal text-zinc-500"> optional</span>
             </label>
             <p className="mt-1 text-xs leading-5 text-zinc-500">
