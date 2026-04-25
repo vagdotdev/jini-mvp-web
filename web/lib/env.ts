@@ -1,29 +1,48 @@
 import { cleanSupabaseEnvValue } from "@/lib/supabase/clean-env";
 
+function normalizeBaseUrl(value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const withScheme = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  try {
+    const u = new URL(withScheme);
+    return `${u.protocol}//${u.host}`;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Returns the canonical base URL for the app.
  *
- * Priority:
- *   1. NEXT_PUBLIC_APP_URL env var (set this in Vercel for a stable domain).
- *   2. Derived from the incoming request's origin (works on any deployment —
- *      preview URLs, custom domains — without needing to set the env var).
- *   3. Falls back to http://localhost:3000 for local dev without the env var.
+ * Priority (when `req` is provided):
+ *   1. The incoming request's origin if it's a real production host
+ *      (anything other than localhost/127.0.0.1) — this keeps generated
+ *      links on whatever domain the user is currently on (e.g. sarojini.shop).
+ *   2. NEXT_PUBLIC_APP_URL env var, normalized (https:// auto-added if missing).
+ *   3. Localhost fallback (only used when no req and no env var).
  *
- * Pass the `req` argument from any API route handler to enable option 2.
+ * Without a `req` (e.g. build-time), env var is used first.
  */
 export function getPublicAppUrl(req?: Request): string {
-  const raw = process.env.NEXT_PUBLIC_APP_URL?.trim();
-  if (raw) return raw.replace(/\/$/, "");
+  const envBase = process.env.NEXT_PUBLIC_APP_URL
+    ? normalizeBaseUrl(process.env.NEXT_PUBLIC_APP_URL)
+    : null;
 
   if (req) {
     try {
-      const { protocol, host } = new URL(req.url);
-      return `${protocol}//${host}`;
+      const reqUrl = new URL(req.url);
+      const isLocal =
+        reqUrl.hostname === "localhost" || reqUrl.hostname === "127.0.0.1";
+      if (!isLocal) {
+        return `${reqUrl.protocol}//${reqUrl.host}`;
+      }
     } catch {
       // fall through
     }
   }
 
+  if (envBase) return envBase;
   return "http://localhost:3000";
 }
 
