@@ -66,13 +66,15 @@ export default function Home() {
         <h1 className="mt-2 text-4xl font-semibold tracking-tight text-zinc-900 sm:text-5xl">
           Live from the market. Buy in seconds.
         </h1>
-        <p className="mt-4 max-w-xl text-lg leading-relaxed text-zinc-600">
-          Stream once, list items from a buddy phone, lock each piece to the
-          first payer, and ship from a single sales log. This site is the
-          product we are building for your Sarojini pilot.
-        </p>
       </div>
       <JoinForm />
+      <div className="max-w-xl text-lg leading-relaxed text-zinc-600">
+        <p>A new wave of shopping in India.</p>
+        <p className="mt-2">We’re building a live shopping platform.</p>
+        <p className="mt-2">
+          Starting with India&apos;s most loved Sarojini Nagar Market
+        </p>
+      </div>
     </div>
   );
 }
