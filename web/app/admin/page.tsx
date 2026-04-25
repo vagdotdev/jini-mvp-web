@@ -38,6 +38,23 @@ type ClearResponse = {
   error?: string;
 };
 
+type RecentOrder = {
+  id: string;
+  created_at: string;
+  amount_inr: number;
+  buyer_name: string | null;
+  item_name: string | null;
+  item_image_display_url: string | null;
+  stream_title: string | null;
+  error?: string;
+};
+
+type OrdersResponse = {
+  demo?: boolean;
+  orders?: RecentOrder[];
+  error?: string;
+};
+
 const STATUS_BADGE: Record<string, string> = {
   scheduled: "bg-zinc-200 text-zinc-700",
   live: "bg-rose-100 text-rose-800",
@@ -55,6 +72,8 @@ export default function AdminControlPage() {
   const [streamsErr, setStreamsErr] = useState<string | null>(null);
   const [busyStream, setBusyStream] = useState<string | null>(null);
   const [clearingStreams, setClearingStreams] = useState(false);
+  const [orders, setOrders] = useState<RecentOrder[] | null>(null);
+  const [ordersErr, setOrdersErr] = useState<string | null>(null);
 
   const buildHeaders = useCallback(() => {
     const headers: Record<string, string> = {
@@ -79,6 +98,25 @@ export default function AdminControlPage() {
     }
   }, [buildHeaders]);
 
+  const refreshOrders = useCallback(async () => {
+    setOrdersErr(null);
+    try {
+      const res = await fetch("/api/admin/orders?limit=10", { headers: buildHeaders() });
+      const json = (await res.json().catch(() => ({}))) as OrdersResponse;
+      if (!res.ok) {
+        setOrdersErr(json.error || res.statusText);
+        return;
+      }
+      setOrders(json.orders || []);
+    } catch (e) {
+      setOrdersErr(e instanceof Error ? e.message : "Could not load orders");
+    }
+  }, [buildHeaders]);
+
+  const refreshAll = useCallback(async () => {
+    await Promise.all([refreshStreams(), refreshOrders()]);
+  }, [refreshOrders, refreshStreams]);
+
   async function createStream() {
     setLoading(true);
     setErr(null);
@@ -96,6 +134,7 @@ export default function AdminControlPage() {
       }
       setResult(json);
       void refreshStreams();
+      void refreshOrders();
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Request failed");
     } finally {
@@ -103,7 +142,7 @@ export default function AdminControlPage() {
     }
   }
 
-  async function setStatus(slug: string, status: "live" | "ended" | "scheduled") {
+  async function setStatus(slug: string, status: "ended") {
     setBusyStream(slug);
     try {
       const res = await fetch(`/api/streams/${slug}/status`, {
@@ -116,6 +155,7 @@ export default function AdminControlPage() {
         setStreamsErr(json.error || res.statusText);
       } else {
         await refreshStreams();
+        await refreshOrders();
       }
     } finally {
       setBusyStream(null);
@@ -160,7 +200,7 @@ export default function AdminControlPage() {
     <div className="min-h-full bg-[radial-gradient(circle_at_top_left,#fff7ed_0,#f7f2ea_34%,#eee7dc_70%,#e8ddcf_100%)] px-5 py-8 text-zinc-950">
       <div className="mx-auto flex max-w-5xl flex-col gap-8">
         <header className="overflow-hidden rounded-[2rem] bg-zinc-950 p-8 text-white shadow-2xl">
-          <div className="flex flex-col gap-8 md:flex-row md:items-end md:justify-between">
+          <div className="flex flex-col gap-8">
             <div>
               <p className="text-sm font-semibold uppercase tracking-[0.3em] text-violet-300">
                 Jini Control
@@ -173,10 +213,6 @@ export default function AdminControlPage() {
                 phone, and inventory buddy. This is the control tower before a
                 Sarojini live run.
               </p>
-            </div>
-            <div className="rounded-2xl border border-white/10 bg-white/10 p-4 text-sm text-zinc-200">
-              <p className="font-medium text-white">Current mode</p>
-              <p className="mt-1">Demo until Supabase keys are added.</p>
             </div>
           </div>
         </header>
@@ -322,8 +358,8 @@ export default function AdminControlPage() {
                 Recent streams
               </h2>
               <p className="mt-1 text-sm text-zinc-600">
-                Re-copy links, mark a stream as live, or end it (this also
-                clears any active items and pending reservations).
+                Re-copy links and end a stream. Ending also clears any active
+                items and pending reservations.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2 lg:justify-end">
@@ -332,21 +368,21 @@ export default function AdminControlPage() {
                 type="password"
                 value={secret}
                 onChange={(e) => setSecret(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && void refreshStreams()}
+                onKeyDown={(e) => e.key === "Enter" && void refreshAll()}
                 placeholder="Secret"
                 autoComplete="off"
                 aria-label="Admin secret for recent streams"
               />
               <button
                 type="button"
-                onClick={() => void refreshStreams()}
+                onClick={() => void refreshAll()}
                 className="rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-xs font-semibold text-violet-800 hover:bg-violet-100"
               >
                 Unlock
               </button>
               <button
                 type="button"
-                onClick={() => void refreshStreams()}
+                onClick={() => void refreshAll()}
                 className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs font-semibold text-zinc-700 hover:bg-zinc-50"
               >
                 Refresh
@@ -439,16 +475,6 @@ export default function AdminControlPage() {
                       ))}
                     </div>
                     <div className="mt-3 flex flex-wrap gap-2">
-                      {s.status !== "live" ? (
-                        <button
-                          type="button"
-                          disabled={isBusy}
-                          onClick={() => void setStatus(s.slug, "live")}
-                          className="rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-500 disabled:opacity-60"
-                        >
-                          Mark live
-                        </button>
-                      ) : null}
                       {s.status !== "ended" ? (
                         <button
                           type="button"
@@ -467,19 +493,88 @@ export default function AdminControlPage() {
                           End stream
                         </button>
                       ) : (
-                        <button
-                          type="button"
-                          disabled={isBusy}
-                          onClick={() => void setStatus(s.slug, "scheduled")}
-                          className="rounded-lg bg-zinc-200 px-3 py-1.5 text-xs font-semibold text-zinc-800 hover:bg-zinc-300 disabled:opacity-60"
-                        >
-                          Re-open as scheduled
-                        </button>
+                        <span className="rounded-lg bg-zinc-100 px-3 py-1.5 text-xs font-semibold text-zinc-500">
+                          Ended
+                        </span>
                       )}
                     </div>
                   </li>
                 );
               })}
+            </ul>
+          )}
+        </section>
+
+        <section className="rounded-[1.75rem] border border-white/70 bg-white p-6 shadow-xl shadow-zinc-900/5">
+          <div className="mb-4 flex items-start justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-semibold tracking-tight text-zinc-950">
+                Recent orders
+              </h2>
+              <p className="mt-1 text-sm text-zinc-600">
+                Paid purchases from recent streams.
+              </p>
+            </div>
+            <Link
+              href="/admin/orders"
+              className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs font-semibold text-zinc-700 hover:bg-zinc-100"
+            >
+              View all + export
+            </Link>
+          </div>
+
+          {ordersErr ? (
+            <p className="mb-3 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-800">
+              {ordersErr}
+            </p>
+          ) : null}
+
+          {orders === null ? (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => void refreshOrders()}
+                className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs font-semibold text-zinc-700 hover:bg-zinc-50"
+              >
+                Load recent orders
+              </button>
+              <p className="text-sm text-zinc-500">Unlock first if secret is configured.</p>
+            </div>
+          ) : orders.length === 0 ? (
+            <p className="text-sm text-zinc-500">No new recent orders.</p>
+          ) : (
+            <ul className="space-y-3">
+              {orders.map((o) => (
+                <li
+                  key={o.id}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-zinc-50 p-3"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div
+                      className="h-12 w-10 shrink-0 rounded-md bg-zinc-200 bg-cover bg-center"
+                      style={{
+                        backgroundImage: o.item_image_display_url
+                          ? `url(${o.item_image_display_url})`
+                          : undefined,
+                      }}
+                    />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-zinc-900">
+                        {o.item_name || "Item"}
+                      </p>
+                      <p className="truncate text-xs text-zinc-600">
+                        {o.buyer_name || "Unknown buyer"} · {o.stream_title || "Untitled stream"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-bold text-zinc-900">₹{o.amount_inr}</p>
+                    <p className="text-xs text-zinc-500">
+                      {new Date(o.created_at).toLocaleString()}
+                    </p>
+                  </div>
+                </li>
+              ))}
             </ul>
           )}
         </section>

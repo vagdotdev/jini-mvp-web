@@ -43,12 +43,12 @@ export const GET = wrapRoute("api.livekit.token", async (req: Request) => {
     role === "host"
       ? admin
           .from("live_streams")
-          .select("id, slug, title, livekit_room_name")
+          .select("id, slug, title, status, livekit_room_name")
           .eq("host_token", tokenOrSlug)
           .maybeSingle()
       : admin
           .from("live_streams")
-          .select("id, slug, title, livekit_room_name")
+          .select("id, slug, title, status, livekit_room_name")
           .eq("slug", tokenOrSlug)
           .maybeSingle();
 
@@ -59,6 +59,12 @@ export const GET = wrapRoute("api.livekit.token", async (req: Request) => {
   }
   if (!stream) {
     return NextResponse.json({ error: "Stream not found" }, { status: 404 });
+  }
+  if (stream.status === "ended") {
+    return NextResponse.json(
+      { error: "This stream has ended. New joins are disabled." },
+      { status: 410 },
+    );
   }
 
   const identity = `${role}-${crypto.randomUUID()}`;
