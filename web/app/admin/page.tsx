@@ -246,7 +246,7 @@ export default function AdminControlPage() {
     <div className="min-h-full bg-[radial-gradient(circle_at_top_left,#fff7ed_0,#f7f2ea_34%,#eee7dc_70%,#e8ddcf_100%)] px-5 py-8 text-zinc-950">
       <div className="mx-auto flex max-w-5xl flex-col gap-8">
         <header className="overflow-hidden rounded-[2rem] bg-zinc-950 p-8 text-white shadow-2xl">
-          <div className="flex flex-col gap-8">
+          <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between md:gap-8">
             <div>
               <p className="text-sm font-semibold uppercase tracking-[0.3em] text-violet-300">
                 Jini Control
@@ -260,6 +260,25 @@ export default function AdminControlPage() {
                 Sarojini live run.
               </p>
             </div>
+            <Link
+              href="/admin/wallet"
+              className="inline-flex shrink-0 items-center gap-2 rounded-2xl border border-white/25 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white shadow-sm backdrop-blur transition hover:border-white/40 hover:bg-white/20"
+            >
+              <svg
+                aria-hidden
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-4 w-4"
+              >
+                <path d="M3 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2H5a2 2 0 0 0 0 4h16v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" />
+                <circle cx="17" cy="11" r="1.2" fill="currentColor" />
+              </svg>
+              Top up wallets
+            </Link>
           </div>
         </header>
 

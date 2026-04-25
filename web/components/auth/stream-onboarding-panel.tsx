@@ -19,6 +19,7 @@ export function StreamOnboardingPanel({ slug }: StreamOnboardingPanelProps) {
     <>
       <LoginButton
         redirectTo={`/stream/${slug}/onboarding`}
+        liveRedirect={`/stream/${slug}/live`}
         onAnonymousSignedIn={() => setAuthVersion((v) => v + 1)}
       />
       <OnboardingForm slug={slug} authVersion={authVersion} />

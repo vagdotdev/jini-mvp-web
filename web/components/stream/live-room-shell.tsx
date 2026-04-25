@@ -52,9 +52,11 @@ function fetchWithTimeout(
 export function LiveRoomShell({ slug }: { slug: string }) {
   const [stream, setStream] = useState<StreamMeta | null>(null);
   const [items, setItems] = useState<StreamItem[]>(mockItems);
+  const [walletBalancePaise, setWalletBalancePaise] = useState<number | null>(null);
   const [status, setStatus] = useState("Loading live room...");
   const [myUserId, setMyUserId] = useState<string | null>(null);
   const [lockingId, setLockingId] = useState<string | null>(null);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [buyMessage, setBuyMessage] = useState<string | null>(null);
   const [chatOpen, setChatOpen] = useState(false);
   const [unread, setUnread] = useState(0);
@@ -67,6 +69,20 @@ export function LiveRoomShell({ slug }: { slug: string }) {
   const lockItem = useCallback(
     async (itemId: string) => {
       if (!stream?.id) return;
+      const item = items.find((row) => row.id === itemId);
+      const itemPricePaise = (item?.price_inr ?? 0) * 100;
+      if (walletBalancePaise != null && walletBalancePaise <= 0) {
+        setBuyMessage("Wallet cash not enough");
+        return;
+      }
+      if (
+        walletBalancePaise != null &&
+        itemPricePaise > 0 &&
+        walletBalancePaise < itemPricePaise
+      ) {
+        setBuyMessage("Wallet cash not enough");
+        return;
+      }
       setBuyMessage(null);
       setLockingId(itemId);
       try {
@@ -104,14 +120,88 @@ export function LiveRoomShell({ slug }: { slug: string }) {
             .order("created_at", { ascending: false });
           if (updated) setItems(updated as StreamItem[]);
         }
-        setBuyMessage("Reserved for you — payment step comes next.");
+        setBuyMessage("Reserved — tap Confirm purchase to pay from wallet.");
       } catch {
         setBuyMessage("Network error. Try again.");
       } finally {
         setLockingId(null);
       }
     },
-    [stream],
+    [items, stream, walletBalancePaise],
+  );
+
+  const confirmPurchase = useCallback(
+    async (itemId: string) => {
+      if (!stream?.id) return;
+      const item = items.find((row) => row.id === itemId);
+      const itemPricePaise = (item?.price_inr ?? 0) * 100;
+      if (walletBalancePaise != null && walletBalancePaise <= 0) {
+        setBuyMessage("Wallet cash not enough");
+        return;
+      }
+      if (
+        walletBalancePaise != null &&
+        itemPricePaise > 0 &&
+        walletBalancePaise < itemPricePaise
+      ) {
+        setBuyMessage("Wallet cash not enough");
+        return;
+      }
+      setBuyMessage(null);
+      setConfirmingId(itemId);
+      try {
+        const res = await fetchWithTimeout("/api/items/confirm-purchase", {
+          method: "POST",
+          timeoutMs: 20000,
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ item_id: itemId }),
+        });
+        const json = (await res.json().catch(() => ({}))) as {
+          error?: string;
+          new_balance_paise?: number;
+          amount_paise?: number;
+        };
+        if (!res.ok) {
+          if (res.status === 402) {
+            setBuyMessage("Wallet cash not enough");
+          } else if (res.status === 401) {
+            setBuyMessage("Sign in to complete this purchase.");
+          } else if (res.status === 409) {
+            setBuyMessage(
+              json.error || "Hold expired — tap Buy now to reserve again.",
+            );
+          } else {
+            setBuyMessage(json.error || "Could not confirm purchase.");
+          }
+          return;
+        }
+        const supabase = createBrowserSupabaseClient();
+        if (supabase) {
+          const { data: updated } = await supabase
+            .from("stream_items")
+            .select(
+              "id, name, price_inr, size_label, image_display_url, status, lock_expires_at, locked_by",
+            )
+            .eq("stream_id", stream.id)
+            .in("status", ["active", "locked"])
+            .order("created_at", { ascending: false });
+          if (updated) setItems(updated as StreamItem[]);
+        }
+        const paid = (json.amount_paise ?? 0) / 100;
+        const balancePaise = Number(json.new_balance_paise ?? 0);
+        const balance = balancePaise / 100;
+        setWalletBalancePaise(balancePaise);
+        setBuyMessage(
+          `Purchased ✓ ₹${paid} debited · wallet ₹${balance.toLocaleString("en-IN")}`,
+        );
+      } catch {
+        setBuyMessage("Network error. Try again.");
+      } finally {
+        setConfirmingId(null);
+      }
+    },
+    [items, stream, walletBalancePaise],
   );
 
   useEffect(() => {
@@ -163,6 +253,23 @@ export function LiveRoomShell({ slug }: { slug: string }) {
         if (!supabase) return;
         const { data: authUser } = await supabase.auth.getUser();
         if (active) setMyUserId(authUser.user?.id ?? null);
+        if (authUser.user && active) {
+          const accountRes = await fetchWithTimeout("/api/account", {
+            cache: "no-store",
+            credentials: "include",
+            timeoutMs: 5000,
+          });
+          if (accountRes.ok) {
+            const accountJson = (await accountRes.json().catch(() => null)) as
+              | { wallet?: { balance_paise?: number } }
+              | null;
+            if (accountJson && active) {
+              setWalletBalancePaise(
+                Number(accountJson.wallet?.balance_paise ?? 0),
+              );
+            }
+          }
+        }
 
         const { data: itemRows } = await supabase
           .from("stream_items")
@@ -223,16 +330,31 @@ export function LiveRoomShell({ slug }: { slug: string }) {
         })
         .catch(() => undefined);
     }, 3000);
+    const walletPoll = window.setInterval(() => {
+      if (!active || !myUserId) return;
+      void fetchWithTimeout("/api/account", {
+        cache: "no-store",
+        credentials: "include",
+        timeoutMs: 5000,
+      })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data: { wallet?: { balance_paise?: number } } | null) => {
+          if (!active || !data) return;
+          setWalletBalancePaise(Number(data.wallet?.balance_paise ?? 0));
+        })
+        .catch(() => undefined);
+    }, 5000);
 
     return () => {
       active = false;
       window.clearInterval(metaPoll);
+      window.clearInterval(walletPoll);
       demoChannel.close();
       if (supabase && itemsChannel) {
         void supabase.removeChannel(itemsChannel);
       }
     };
-  }, [slug]);
+  }, [myUserId, slug]);
 
   useEffect(() => {
     const supabase = createBrowserSupabaseClient();
@@ -315,6 +437,23 @@ export function LiveRoomShell({ slug }: { slug: string }) {
               </div>
 
               <div className="flex shrink-0 flex-col items-end gap-2">
+                {walletBalancePaise != null ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-black/40 px-2.5 py-1 text-[11px] font-medium text-white/90 ring-1 ring-white/15 backdrop-blur">
+                    <svg
+                      className="h-3.5 w-3.5 shrink-0 opacity-80"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M3 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2H5a2 2 0 0 0 0 4h16v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" />
+                      <circle cx="17" cy="11" r="1.2" fill="currentColor" />
+                    </svg>
+                    ₹{(walletBalancePaise / 100).toLocaleString("en-IN")}
+                  </span>
+                ) : null}
                 <Link
                   href="/account"
                   className="inline-flex items-center gap-1.5 rounded-full bg-black/40 px-3 py-2 text-xs font-medium text-white/90 ring-1 ring-white/15 backdrop-blur hover:bg-black/55"
@@ -369,26 +508,39 @@ export function LiveRoomShell({ slug }: { slug: string }) {
                         <p className="text-xs text-white/70">
                           {item.size_label || "One-off market find"}
                         </p>
-                        {stream?.commerce_enabled && (
-                          <button
-                            type="button"
-                            disabled={
-                              lockingId === item.id ||
-                              (item.status === "locked" &&
-                                (item.locked_by == null || item.locked_by !== myUserId))
-                            }
-                            onClick={() => void lockItem(item.id)}
-                            className="mt-3 flex min-h-11 w-full items-center justify-center rounded-xl bg-violet-600 px-3 text-xs font-semibold hover:bg-violet-500 disabled:cursor-not-allowed disabled:bg-zinc-600 disabled:opacity-80"
-                          >
-                            {lockingId === item.id
-                              ? "Reserving…"
-                              : item.status === "locked" && item.locked_by === myUserId
-                                ? "Yours (checkout next)"
-                                : item.status === "locked"
-                                  ? "Locked"
-                                  : "Buy now"}
-                          </button>
-                        )}
+                        {stream?.commerce_enabled && (() => {
+                          const mineLocked =
+                            item.status === "locked" && item.locked_by === myUserId;
+                          const someoneElseLocked =
+                            item.status === "locked" && !mineLocked;
+                          const busy =
+                            lockingId === item.id || confirmingId === item.id;
+                          const onClick = mineLocked
+                            ? () => void confirmPurchase(item.id)
+                            : () => void lockItem(item.id);
+                          let label: string;
+                          if (confirmingId === item.id) label = "Paying…";
+                          else if (lockingId === item.id) label = "Reserving…";
+                          else if (mineLocked)
+                            label = `Confirm purchase · ₹${item.price_inr}`;
+                          else if (someoneElseLocked) label = "Locked";
+                          else label = "Buy now";
+                          return (
+                            <button
+                              type="button"
+                              disabled={busy || someoneElseLocked}
+                              onClick={onClick}
+                              className={[
+                                "mt-3 flex min-h-11 w-full items-center justify-center rounded-xl px-3 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-80",
+                                mineLocked
+                                  ? "bg-emerald-500 text-white hover:bg-emerald-400 disabled:bg-emerald-700"
+                                  : "bg-violet-600 text-white hover:bg-violet-500 disabled:bg-zinc-600",
+                              ].join(" ")}
+                            >
+                              {label}
+                            </button>
+                          );
+                        })()}
                       </div>
                     </article>
                   ))}
