@@ -22,6 +22,8 @@ type StreamMeta = {
   slug: string;
   title: string | null;
   status: string;
+  commerce_enabled?: boolean;
+  viewer_count?: number;
 };
 
 const mockItems: StreamItem[] = [];
@@ -155,9 +157,8 @@ export function LiveRoomShell({ slug }: { slug: string }) {
           credentials: "include",
           body: JSON.stringify({ slug }),
         });
-        if (!joinRes.ok && joinRes.status !== 401) {
-          setStatus("Could not record your session — items and chat still work.");
-        }
+        // Silent if join tracking fails; this should not distract viewers.
+        // Items + chat can still work via server APIs/realtime.
 
         if (!supabase) return;
         const { data: authUser } = await supabase.auth.getUser();
@@ -206,8 +207,26 @@ export function LiveRoomShell({ slug }: { slug: string }) {
     }
 
     void boot();
+
+    // Light-weight poll for stream metadata (commerce_enabled, status).
+    // RLS blocks browser realtime on live_streams, so we poll the API.
+    const metaPoll = window.setInterval(() => {
+      if (!active) return;
+      void fetchWithTimeout(`/api/streams/${slug}`, {
+        cache: "no-store",
+        credentials: "include",
+        timeoutMs: 5000,
+      })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data: StreamMeta | null) => {
+          if (data && active) setStream((prev) => ({ ...(prev ?? {} as StreamMeta), ...data }));
+        })
+        .catch(() => undefined);
+    }, 3000);
+
     return () => {
       active = false;
+      window.clearInterval(metaPoll);
       demoChannel.close();
       if (supabase && itemsChannel) {
         void supabase.removeChannel(itemsChannel);
@@ -266,6 +285,15 @@ export function LiveRoomShell({ slug }: { slug: string }) {
                   <span className="rounded-md bg-violet-600 px-2 py-1 text-xs font-semibold">
                     LIVE
                   </span>
+                  {/* Viewers pill */}
+                  {stream && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-black/35 px-2.5 py-1 text-[11px] font-medium text-white/80 ring-1 ring-white/15 backdrop-blur">
+                      <svg className="h-3 w-3 shrink-0 opacity-70" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" />
+                      </svg>
+                      {`${stream.viewer_count ?? 0}K`}
+                    </span>
+                  )}
                 </div>
                 <div className="mt-3 flex items-center gap-3 sm:mt-4">
                   <div className="h-10 w-10 shrink-0 rounded-full bg-gradient-to-br from-amber-200 to-pink-400 ring-2 ring-white/60 sm:h-11 sm:w-11" />
@@ -275,21 +303,47 @@ export function LiveRoomShell({ slug }: { slug: string }) {
                   </div>
                 </div>
               </div>
-              <div className="flex shrink-0 flex-col items-end gap-2">
-                <Link
-                  href="/account"
-                  className="rounded-full bg-black/40 px-3 py-2 text-xs font-medium text-white/90 ring-1 ring-white/15 backdrop-blur hover:bg-black/55"
-                >
-                  Account
-                </Link>
-                <div className="hidden rounded-full bg-black/35 px-3 py-2 text-xs text-white/85 backdrop-blur sm:block md:text-sm">
+
+              {/* Center top location notch */}
+              <div className="pointer-events-none absolute left-1/2 top-[max(0.75rem,env(safe-area-inset-top))] z-20 -translate-x-1/2">
+                <div className="inline-flex items-center gap-1.5 rounded-full bg-black/35 px-3 py-2 text-xs text-white/85 ring-1 ring-white/15 backdrop-blur md:text-sm">
+                  <svg className="h-3.5 w-3.5 shrink-0 opacity-70" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                  </svg>
                   Sarojini Market
                 </div>
               </div>
+
+              <div className="flex shrink-0 flex-col items-end gap-2">
+                <Link
+                  href="/account"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-black/40 px-3 py-2 text-xs font-medium text-white/90 ring-1 ring-white/15 backdrop-blur hover:bg-black/55"
+                >
+                  {/* Person icon */}
+                  <svg className="h-3.5 w-3.5 shrink-0 opacity-80" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" />
+                  </svg>
+                  Account
+                </Link>
+              </div>
             </header>
 
-            <div className="mt-4 min-h-0 flex-1 lg:mt-0 lg:flex lg:max-h-none lg:flex-col lg:justify-end">
+            <div className="mt-4 min-h-0 flex-1 lg:mt-0 lg:flex lg:max-h-none lg:flex-col lg:justify-center">
               <div className="-mx-1 flex flex-col gap-3 lg:mx-0 lg:max-w-sm lg:space-y-3">
+                {/* Commerce state pill — only shown when there are items */}
+                {visibleItems.length > 0 && stream && (
+                  <div className="inline-flex w-fit items-center gap-1.5 rounded-full bg-black/35 px-3 py-1 text-[11px] font-medium text-white/85 ring-1 ring-white/15 backdrop-blur">
+                    <span
+                      className={[
+                        "h-1.5 w-1.5 rounded-full bg-white/70",
+                        stream.commerce_enabled ? "animate-pulse" : "",
+                      ].join(" ")}
+                    />
+                    {stream.commerce_enabled
+                      ? "People are shopping"
+                      : "Shopping starts in a sometime"}
+                  </div>
+                )}
                 <div className="flex gap-3 overflow-x-auto overflow-y-visible pb-1 [-webkit-overflow-scrolling:touch] [scrollbar-width:thin] lg:mx-0 lg:flex-col lg:overflow-visible lg:pb-0">
                   {visibleItems.map((item) => (
                     <article
@@ -315,24 +369,26 @@ export function LiveRoomShell({ slug }: { slug: string }) {
                         <p className="text-xs text-white/70">
                           {item.size_label || "One-off market find"}
                         </p>
-                        <button
-                          type="button"
-                          disabled={
-                            lockingId === item.id ||
-                            (item.status === "locked" &&
-                              (item.locked_by == null || item.locked_by !== myUserId))
-                          }
-                          onClick={() => void lockItem(item.id)}
-                          className="mt-3 flex min-h-11 w-full items-center justify-center rounded-xl bg-violet-600 px-3 text-xs font-semibold hover:bg-violet-500 disabled:cursor-not-allowed disabled:bg-zinc-600 disabled:opacity-80"
-                        >
-                          {lockingId === item.id
-                            ? "Reserving…"
-                            : item.status === "locked" && item.locked_by === myUserId
-                              ? "Yours (checkout next)"
-                              : item.status === "locked"
-                                ? "Locked"
-                                : "Buy now"}
-                        </button>
+                        {stream?.commerce_enabled && (
+                          <button
+                            type="button"
+                            disabled={
+                              lockingId === item.id ||
+                              (item.status === "locked" &&
+                                (item.locked_by == null || item.locked_by !== myUserId))
+                            }
+                            onClick={() => void lockItem(item.id)}
+                            className="mt-3 flex min-h-11 w-full items-center justify-center rounded-xl bg-violet-600 px-3 text-xs font-semibold hover:bg-violet-500 disabled:cursor-not-allowed disabled:bg-zinc-600 disabled:opacity-80"
+                          >
+                            {lockingId === item.id
+                              ? "Reserving…"
+                              : item.status === "locked" && item.locked_by === myUserId
+                                ? "Yours (checkout next)"
+                                : item.status === "locked"
+                                  ? "Locked"
+                                  : "Buy now"}
+                          </button>
+                        )}
                       </div>
                     </article>
                   ))}

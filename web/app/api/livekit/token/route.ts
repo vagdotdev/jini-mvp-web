@@ -100,5 +100,6 @@ export const GET = wrapRoute("api.livekit.token", async (req: Request) => {
     url: lk.url,
     token: await accessToken.toJwt(),
     room: stream.livekit_room_name,
+    slug: stream.slug,
   });
 });

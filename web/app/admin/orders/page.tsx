@@ -13,6 +13,7 @@ type OrderRow = {
   item_image_display_url: string | null;
   stream_slug: string | null;
   stream_title: string | null;
+  shipping_address: string | null;
 };
 
 type OrdersResponse = {
@@ -154,6 +155,7 @@ export default function AdminOrdersPage() {
                     <th className="px-3 py-2">Buyer</th>
                     <th className="px-3 py-2">Item</th>
                     <th className="px-3 py-2">Stream</th>
+                    <th className="px-3 py-2">Shipping</th>
                     <th className="px-3 py-2">Amount</th>
                     <th className="px-3 py-2">Time</th>
                   </tr>
@@ -184,6 +186,11 @@ export default function AdminOrdersPage() {
                       <td className="px-3 py-3">
                         <p className="truncate">{o.stream_title || "Untitled stream"}</p>
                         <p className="text-xs text-zinc-500">{o.stream_slug || "-"}</p>
+                      </td>
+                      <td className="px-3 py-3">
+                        <p className="max-w-56 whitespace-pre-wrap break-words text-xs text-zinc-700">
+                          {o.shipping_address || "Not captured"}
+                        </p>
                       </td>
                       <td className="px-3 py-3 font-semibold">₹{o.amount_inr}</td>
                       <td className="rounded-r-xl px-3 py-3 text-xs text-zinc-500">

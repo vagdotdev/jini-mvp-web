@@ -27,10 +27,33 @@ export const GET = wrapRoute("api.chat.host.get", async (req: Request) => {
 
   const { data: stream, error: lookupError } = await admin
     .from("live_streams")
-    .select("id, slug, title, status")
+    .select("id, slug, title, status, commerce_enabled")
     .eq("host_token", token)
     .maybeSingle();
   if (lookupError) {
+    // Graceful fallback if the migration for commerce_enabled was not run yet
+    if (lookupError.message?.toLowerCase().includes("commerce_enabled")) {
+      const { data: legacy, error: legacyErr } = await admin
+        .from("live_streams")
+        .select("id, slug, title, status")
+        .eq("host_token", token)
+        .maybeSingle();
+      if (legacyErr) {
+        return NextResponse.json({ error: legacyErr.message }, { status: 500 });
+      }
+      if (!legacy) {
+        return NextResponse.json(
+          { error: "Stream not found for host token" },
+          { status: 404 },
+        );
+      }
+      return NextResponse.json({
+        stream: { ...legacy, commerce_enabled: false },
+        messages: [],
+        warning:
+          "commerce_enabled column missing — run migration 005_commerce_toggle.sql in Supabase SQL editor.",
+      });
+    }
     logger.error("api.chat.host.get", "stream lookup failed", {
       error: lookupError.message,
     });
@@ -77,6 +100,7 @@ export const GET = wrapRoute("api.chat.host.get", async (req: Request) => {
       slug: stream.slug,
       title: stream.title,
       status: stream.status,
+      commerce_enabled: (stream as { commerce_enabled?: boolean }).commerce_enabled ?? false,
     },
     messages: data || [],
   });

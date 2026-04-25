@@ -14,7 +14,7 @@ export default function RefundPage() {
         this stage.
       </p>
       <p>
-        Every item is shown live — held up, turned around, described as-is —
+        Every item is shown live, held up, turned around, and described as-is,
         so you know exactly what you are buying before you pay.
       </p>
       <p>
@@ -28,7 +28,7 @@ export default function RefundPage() {
         . We will always be reasonable.
       </p>
       <p className="text-zinc-500">
-        Refunds are on the roadmap as we grow. Watch this space.
+        Refunds are on the roadmap as we grow.
       </p>
     </PolicyShell>
   );

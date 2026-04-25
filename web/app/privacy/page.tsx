@@ -11,14 +11,14 @@ export default function PrivacyPage() {
     <PolicyShell eyebrow="Policy" title="Privacy">
       <p>We collect only what is needed to run Jini and deliver your order.</p>
       <ul className="list-disc space-y-1 pl-5 text-zinc-700">
-        <li>Phone number — sign-in and order updates</li>
-        <li>Shipping address — delivery only</li>
-        <li>Basic usage data — which streams you joined</li>
+        <li>Phone number, for sign-in and order updates</li>
+        <li>Shipping address, for delivery only</li>
+        <li>Basic usage data, like which streams you joined</li>
       </ul>
       <p>
         We do not sell your data. Your phone number is never shown publicly or
-        in chat. Payments are handled by our payment partner — Jini never
-        stores card or UPI details.
+        in chat. Payments are handled by our payment partner. Jini never stores
+        card or UPI details.
       </p>
       <p>
         Questions? Message Manasa at{" "}

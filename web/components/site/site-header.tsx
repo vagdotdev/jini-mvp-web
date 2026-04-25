@@ -1,6 +1,16 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+
+const HIDDEN_PREFIXES = ["/admin", "/dev", "/host", "/companion", "/stream"];
 
 export function SiteHeader() {
+  const pathname = usePathname();
+  if (HIDDEN_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
+    return null;
+  }
+
   return (
     <header className="flex items-center justify-between gap-4 px-6 py-4 sm:px-8">
       <Link

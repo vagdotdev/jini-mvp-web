@@ -13,7 +13,7 @@ export default function ShippingPage() {
       <ul className="list-disc space-y-1 pl-5 text-zinc-700">
         <li>Delivery in 4–7 working days (remote areas may take a little longer)</li>
         <li>Tracking details sent once the parcel is out</li>
-        <li>Shipping charges, if any, shown at checkout — no surprises</li>
+        <li>Shipping charges, if any, shown at checkout, no surprises</li>
       </ul>
       <p>
         Questions about your order? WhatsApp Manasa at{" "}

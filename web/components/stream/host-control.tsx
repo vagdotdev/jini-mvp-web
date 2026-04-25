@@ -27,35 +27,14 @@ type LiveKitConn = {
   url: string;
   token: string;
   room: string;
+  slug: string;
 };
-
-function useIsLandscape() {
-  const [landscape, setLandscape] = useState(false);
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const mq = window.matchMedia(
-      "(orientation: landscape) and (max-height: 600px)",
-    );
-    const handler = (event: MediaQueryListEvent | MediaQueryList) =>
-      setLandscape("matches" in event ? event.matches : false);
-    handler(mq);
-    if (mq.addEventListener) {
-      mq.addEventListener("change", handler);
-      return () => mq.removeEventListener("change", handler);
-    }
-    mq.addListener(handler as (e: MediaQueryListEvent) => void);
-    return () =>
-      mq.removeListener(handler as (e: MediaQueryListEvent) => void);
-  }, []);
-  return landscape;
-}
 
 export function HostControl({ token }: HostControlProps) {
   const [conn, setConn] = useState<LiveKitConn | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showLiveKitSetup, setShowLiveKitSetup] = useState(false);
   const [loading, setLoading] = useState(false);
-  const isLandscape = useIsLandscape();
 
   const fetchToken = useCallback(async () => {
     setLoading(true);
@@ -80,11 +59,9 @@ export function HostControl({ token }: HostControlProps) {
         }
         return;
       }
-      setConn({ url: json.url, token: json.token, room: json.room ?? "" });
+      setConn({ url: json.url, token: json.token, room: json.room ?? "", slug: json.slug ?? "" });
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to reach LiveKit token API.",
-      );
+      setError(err instanceof Error ? err.message : "Failed to reach LiveKit token API.");
     } finally {
       setLoading(false);
     }
@@ -133,96 +110,78 @@ export function HostControl({ token }: HostControlProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-black text-white">
-      <LiveKitRoom
-        serverUrl={conn.url}
-        token={conn.token}
-        connect
-        video
-        audio
-        data-lk-theme="default"
-        style={{
-          position: "relative",
-          flex: "1 1 auto",
-          minHeight: 0,
-          display: "flex",
-          flexDirection: "column",
-        }}
-        onDisconnected={() => setConn(null)}
-        onError={(err) => setError(err.message)}
-      >
-        <header
-          className="pointer-events-none absolute inset-x-0 top-0 z-30 flex items-center justify-between gap-3 px-4 py-3"
-          style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 0.65rem)" }}
+    /* Outer row: video left, chat right. Fixed full-screen, flex-row always. */
+    <div className="fixed inset-0 z-50 flex flex-row bg-black text-white">
+
+      {/* ── LEFT: LiveKit video column ── */}
+      <div className="relative flex-1 min-w-0" style={{ height: "100dvh" }}>
+        <LiveKitRoom
+          serverUrl={conn.url}
+          token={conn.token}
+          connect
+          video
+          audio
+          data-lk-theme="default"
+          style={{ height: "100%", width: "100%", position: "absolute", inset: 0 }}
+          onDisconnected={() => setConn(null)}
+          onError={(err) => setError(err.message)}
         >
-          <div className="pointer-events-auto inline-flex items-center gap-2 rounded-full bg-black/55 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/90 backdrop-blur ring-1 ring-white/10">
-            <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-rose-500" />
+          {/* Video fills the whole left column */}
+          <div style={{ position: "absolute", inset: 0 }}>
+            <HostStage />
+          </div>
+
+          {/* Live pill top-left */}
+          <div
+            className="pointer-events-none absolute left-4 top-4 z-20 inline-flex items-center gap-2 rounded-full bg-black/60 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-white backdrop-blur ring-1 ring-white/10"
+            style={{ top: "calc(env(safe-area-inset-top, 0px) + 1rem)" }}
+          >
+            <span className="h-2 w-2 animate-pulse rounded-full bg-rose-500" />
             Live
           </div>
-          <span className="pointer-events-auto rounded-full bg-black/45 px-3 py-1.5 text-[11px] font-medium text-white/80 backdrop-blur">
-            Host viewfinder
-          </span>
-        </header>
 
-        <div className="relative flex-1 min-h-0">
-          <HostStage />
-          <div
-            className={
-              isLandscape
-                ? "pointer-events-none absolute inset-y-0 right-0 w-[280px] max-w-[36vw] bg-gradient-to-l from-black/55 via-black/15 to-transparent"
-                : "pointer-events-none absolute inset-x-0 bottom-0 h-56 bg-gradient-to-t from-black/75 via-black/35 to-transparent"
-            }
-          />
-          <HostChatTicker
-            hostToken={token}
-            variant={isLandscape ? "landscape" : "portrait"}
-          />
-        </div>
+          {/* Controls floating center-bottom */}
+          <div className="absolute inset-x-0 bottom-6 z-20 flex justify-center">
+            <div className="rounded-2xl bg-black/60 px-3 py-1.5 backdrop-blur ring-1 ring-white/10">
+              <ControlBar
+                variation="minimal"
+                controls={{
+                  microphone: true,
+                  camera: true,
+                  screenShare: false,
+                  leave: true,
+                  chat: false,
+                }}
+              />
+            </div>
+          </div>
 
-        <RoomAudioRenderer />
-        <div
-          className="relative z-30 border-t border-white/10 bg-black/65 backdrop-blur-md"
-          style={{
-            paddingBottom: "max(0.25rem, env(safe-area-inset-bottom, 0px))",
-          }}
-        >
-          <ControlBar
-            variation="minimal"
-            controls={{
-              microphone: true,
-              camera: true,
-              screenShare: false,
-              leave: true,
-              chat: false,
-            }}
-          />
-        </div>
-      </LiveKitRoom>
-      {error ? (
-        <p
-          className="absolute inset-x-0 z-40 px-4 py-2 text-center text-xs text-amber-100"
-          style={{
-            top: "calc(env(safe-area-inset-top, 0px) + 3.25rem)",
-            background: "rgba(120, 53, 15, 0.85)",
-          }}
-        >
-          {error}
-        </p>
-      ) : null}
+          {error ? (
+            <div className="absolute inset-x-0 top-16 z-30 mx-4 rounded-xl bg-amber-900/80 px-4 py-2 text-center text-xs text-amber-100">
+              {error}
+            </div>
+          ) : null}
+
+          <RoomAudioRenderer />
+        </LiveKitRoom>
+      </div>
+
+      {/* ── RIGHT: Chat panel (outside LiveKitRoom entirely) ── */}
+      <div className="flex h-full w-80 shrink-0 flex-col border-l border-white/10 bg-zinc-950">
+        <HostChatTicker hostToken={token} variant="panel" slug={conn.slug} />
+      </div>
     </div>
   );
 }
 
 function HostStage() {
   const tracks = useTracks(
-    [
-      { source: Track.Source.Camera, withPlaceholder: true },
-      { source: Track.Source.ScreenShare, withPlaceholder: false },
-    ],
+    [{ source: Track.Source.Camera, withPlaceholder: true }],
     { onlySubscribed: false },
-  );
+  ).filter((track) => track.participant.isLocal);
+
   return (
-    <GridLayout tracks={tracks} style={{ height: "100%" }}>
+    <GridLayout tracks={tracks} style={{ height: "100%", width: "100%" }}>
       <ParticipantTile />
     </GridLayout>
   );

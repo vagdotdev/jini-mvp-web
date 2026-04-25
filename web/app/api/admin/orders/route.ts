@@ -14,6 +14,7 @@ type OrderRow = {
   item_image_display_url: string | null;
   stream_slug: string | null;
   stream_title: string | null;
+  shipping_address: string | null;
 };
 
 function checkCreateSecret(req: Request) {
@@ -32,6 +33,30 @@ function csvEscape(value: string | number | null | undefined): string {
   return s;
 }
 
+function normalizeShippingAddress(value: unknown): string | null {
+  if (!value) return null;
+  if (typeof value === "string") {
+    const text = value.trim();
+    return text || null;
+  }
+  if (typeof value !== "object") return null;
+
+  const src = value as Record<string, unknown>;
+  const candidates = [
+    src.line1,
+    src.address,
+    src.full_address,
+    src.shipping_address,
+  ];
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+
+  return null;
+}
+
 function toCsv(rows: OrderRow[]): string {
   const header = [
     "order_id",
@@ -43,6 +68,7 @@ function toCsv(rows: OrderRow[]): string {
     "stream_title",
     "stream_slug",
     "item_image_url",
+    "shipping_address",
   ];
   const lines = rows.map((row) =>
     [
@@ -55,6 +81,7 @@ function toCsv(rows: OrderRow[]): string {
       row.stream_title,
       row.stream_slug,
       row.item_image_display_url,
+      row.shipping_address,
     ]
       .map(csvEscape)
       .join(","),
@@ -86,7 +113,7 @@ export async function GET(req: Request) {
 
   const { data: orderRows, error: orderError } = await admin
     .from("orders")
-    .select("id, created_at, amount_inr, status, buyer_id, item_id")
+    .select("id, created_at, amount_inr, status, buyer_id, item_id, shipping_snapshot")
     .eq("status", "paid")
     .order("created_at", { ascending: false })
     .limit(limit);
@@ -152,6 +179,7 @@ export async function GET(req: Request) {
       item_image_display_url: item?.image_display_url || null,
       stream_slug: stream?.slug || null,
       stream_title: stream?.title || null,
+      shipping_address: normalizeShippingAddress(order.shipping_snapshot),
     };
   });
 

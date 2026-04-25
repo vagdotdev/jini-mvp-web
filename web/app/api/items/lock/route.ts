@@ -47,6 +47,29 @@ export const POST = wrapRoute("api.items.lock", async (req: Request) => {
     );
   }
 
+  // Check commerce is open on this stream before allowing purchase
+  const { data: streamRow, error: streamReadErr } = await admin
+    .from("live_streams")
+    .select("commerce_enabled")
+    .eq("id", itemRow.stream_id)
+    .maybeSingle();
+  // If the column is missing, treat as closed (safe default) and tell the user.
+  if (streamReadErr?.message?.toLowerCase().includes("commerce_enabled")) {
+    return NextResponse.json(
+      {
+        error:
+          "Buying isn't enabled yet. (Admin: run migration 005_commerce_toggle.sql)",
+      },
+      { status: 503 },
+    );
+  }
+  if (!streamRow?.commerce_enabled) {
+    return NextResponse.json(
+      { error: "Buying hasn't started yet. Stay tuned!" },
+      { status: 503 },
+    );
+  }
+
   const { data: access, error: accessError } = await admin
     .from("stream_access")
     .select("id")

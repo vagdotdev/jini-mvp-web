@@ -480,7 +480,7 @@ export default function AdminControlPage() {
                 onClick={() => void clearPreviousStreams()}
                 className="rounded-xl border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-60"
               >
-                {clearingStreams ? "Clearing..." : "Clear all"}
+                {clearingStreams ? "Ending..." : "Clear and end all streams"}
               </button>
             </div>
           </div>

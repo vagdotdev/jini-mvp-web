@@ -28,11 +28,12 @@ type HostChatResponse = {
   error?: string;
 };
 
-type Variant = "portrait" | "landscape";
+type Variant = "portrait" | "landscape" | "panel";
 
 type HostChatTickerProps = {
   hostToken: string;
   variant: Variant;
+  slug?: string;
 };
 
 function formatTime(iso: string) {
@@ -69,13 +70,15 @@ function rowLabel(row: ChatRow): string {
   return row.sender_display_name?.trim() || "Shopper";
 }
 
-export function HostChatTicker({ hostToken, variant }: HostChatTickerProps) {
+export function HostChatTicker({ hostToken, variant, slug }: HostChatTickerProps) {
   const [messages, setMessages] = useState<ChatRow[]>([]);
   const [streamMeta, setStreamMeta] = useState<StreamMeta | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [replyOpen, setReplyOpen] = useState(false);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  const [commerceEnabled, setCommerceEnabled] = useState(false);
+  const [commerceToggling, setCommerceToggling] = useState(false);
   const sinceRef = useRef<string | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -202,6 +205,37 @@ export function HostChatTicker({ hostToken, variant }: HostChatTickerProps) {
     }
   }
 
+  // Sync commerce state from the polled stream metadata
+  useEffect(() => {
+    if (streamMeta) {
+      setCommerceEnabled((streamMeta as StreamMeta & { commerce_enabled?: boolean }).commerce_enabled ?? false);
+    }
+  }, [streamMeta]);
+
+  async function toggleCommerce() {
+    if (!slug || commerceToggling) return;
+    setCommerceToggling(true);
+    try {
+      const next = !commerceEnabled;
+      const res = await fetch(
+        `/api/streams/${encodeURIComponent(slug)}/commerce?token=${encodeURIComponent(hostToken)}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ enabled: next }),
+        },
+      );
+      if (res.ok) {
+        setCommerceEnabled(next);
+      } else {
+        const json = (await res.json().catch(() => ({}))) as { error?: string };
+        setError(json.error || "Toggle failed");
+      }
+    } finally {
+      setCommerceToggling(false);
+    }
+  }
+
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Escape") {
       e.preventDefault();
@@ -214,34 +248,71 @@ export function HostChatTicker({ hostToken, variant }: HostChatTickerProps) {
     }
   }
 
-  const visible = messages.slice(-MAX_VISIBLE);
+  const isPanel = variant === "panel";
+  const visible = isPanel ? messages.slice(-MAX_HISTORY) : messages.slice(-MAX_VISIBLE);
   const isPortrait = variant === "portrait";
 
-  const containerClass = isPortrait
-    ? "pointer-events-none absolute inset-x-0 bottom-3 z-20 px-3 sm:px-5"
-    : "pointer-events-none absolute inset-y-0 right-0 z-20 flex w-[260px] max-w-[34vw] flex-col px-3 pb-3 pt-14";
+  const containerClass = isPanel
+    ? "flex h-full min-h-0 flex-col"
+    : isPortrait
+      ? "pointer-events-none absolute inset-x-0 bottom-3 z-20 px-3 sm:px-5"
+      : "pointer-events-none absolute inset-y-0 right-0 z-20 flex w-[260px] max-w-[34vw] flex-col px-3 pb-3 pt-14";
 
-  const surfaceClass = isPortrait
-    ? "pointer-events-auto mx-auto max-w-md rounded-2xl bg-gradient-to-t from-black/80 via-black/55 to-black/15 px-3 pb-2 pt-3 backdrop-blur-md"
-    : "pointer-events-auto mt-auto flex max-h-full flex-col rounded-2xl bg-black/55 p-3 backdrop-blur-md ring-1 ring-white/10";
+  const surfaceClass = isPanel
+    ? "flex h-full min-h-0 flex-col bg-zinc-950 px-4 py-4"
+    : isPortrait
+      ? "pointer-events-auto mx-auto max-w-md rounded-2xl bg-gradient-to-t from-black/80 via-black/55 to-black/15 px-3 pb-2 pt-3 backdrop-blur-md"
+      : "pointer-events-auto mt-auto flex max-h-full flex-col rounded-2xl bg-black/55 p-3 backdrop-blur-md ring-1 ring-white/10";
 
   return (
     <div className={containerClass}>
       <div className={surfaceClass}>
         {!isPortrait ? (
-          <div className="mb-2 flex items-center justify-between text-[11px] uppercase tracking-[0.2em] text-white/55">
+          <div
+            className={
+              isPanel
+                ? "mb-3 flex items-center justify-between border-b border-white/10 pb-3 text-[11px] uppercase tracking-[0.2em] text-white/55"
+                : "mb-2 flex items-center justify-between text-[11px] uppercase tracking-[0.2em] text-white/55"
+            }
+          >
             <span>Live chat</span>
-            {streamMeta?.status === "ended" ? (
-              <span className="rounded-full bg-zinc-700/70 px-2 py-0.5 normal-case tracking-normal text-zinc-200">
-                ended
-              </span>
-            ) : null}
+            <div className="flex items-center gap-2">
+              {streamMeta?.status === "ended" ? (
+                <span className="rounded-full bg-zinc-700/70 px-2 py-0.5 normal-case tracking-normal text-zinc-200">
+                  ended
+                </span>
+              ) : null}
+              {slug ? (
+                <button
+                  type="button"
+                  onClick={() => void toggleCommerce()}
+                  disabled={commerceToggling}
+                  title={commerceEnabled ? "Commerce ON — tap to pause buying" : "Commerce OFF — tap to open buying"}
+                  className={[
+                    "flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-semibold normal-case tracking-normal transition-colors disabled:opacity-60",
+                    commerceEnabled
+                      ? "bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-400/30 hover:bg-emerald-500/30"
+                      : "bg-zinc-700/60 text-zinc-300 ring-1 ring-white/10 hover:bg-zinc-700",
+                  ].join(" ")}
+                >
+                  <span
+                    className={[
+                      "h-1.5 w-1.5 rounded-full",
+                      commerceEnabled ? "bg-emerald-400" : "bg-zinc-500",
+                    ].join(" ")}
+                  />
+                  {commerceToggling ? "…" : commerceEnabled ? "Buying open" : "Buying closed"}
+                </button>
+              ) : null}
+            </div>
           </div>
         ) : null}
         <div
           ref={listRef}
           className={
-            isPortrait
+            isPanel
+              ? "min-h-0 flex-1 space-y-2 overflow-y-auto pr-1 text-[13px] leading-snug text-white"
+              : isPortrait
               ? "max-h-[26vh] space-y-1.5 overflow-hidden text-[13px] leading-snug text-white"
               : "min-h-0 flex-1 space-y-2 overflow-y-auto pr-1 text-[13px] leading-snug text-white"
           }
@@ -256,7 +327,11 @@ export function HostChatTicker({ hostToken, variant }: HostChatTickerProps) {
               return (
                 <div
                   key={row.id}
-                  className="flex items-start gap-2 rounded-md bg-black/20 px-1.5 py-1"
+                  className={
+                    isPanel
+                      ? "flex items-start gap-2 rounded-xl bg-white/[0.04] px-2.5 py-2"
+                      : "flex items-start gap-2 rounded-md bg-black/20 px-1.5 py-1"
+                  }
                 >
                   <span
                     className={`mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full ${accent.dotClass}`}
