@@ -57,7 +57,7 @@ export const POST = wrapRoute("api.payments.razorpay.create-order", async (req: 
     if (item.lock_expires_at && new Date(item.lock_expires_at) < new Date()) {
       return NextResponse.json({ error: "Hold expired — reserve again." }, { status: 409 });
     }
-    amountPaise = item.price_inr * 100;
+    amountPaise = Math.round(item.price_inr * 100);
     notes = {
       ...notes,
       item_id: item.id,

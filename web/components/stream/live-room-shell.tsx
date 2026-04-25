@@ -480,7 +480,7 @@ export function LiveRoomShell({ slug }: { slug: string }) {
                     />
                     {stream.commerce_enabled
                       ? "People are shopping"
-                      : "Shopping starts in a sometime"}
+                      : "Shopping starts soon"}
                   </div>
                 )}
                 <div className="flex gap-3 overflow-x-auto overflow-y-visible pb-1 [-webkit-overflow-scrolling:touch] [scrollbar-width:thin] lg:mx-0 lg:flex-col lg:overflow-visible lg:pb-0">
