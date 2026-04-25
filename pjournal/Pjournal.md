@@ -464,3 +464,41 @@ All future updates should be appended here as new dated entries.
 - Optional: expose a configurable fade profile preset (gentle/normal/fast) once operator flow is stable.
 - Keep validating on actual host phone + one viewer device before each live session.
 
+---
+
+## 2026-04-26 02:03 (Sunday) — Admin Link QR (Mobile-First)
+
+### Done
+
+- Added compact QR icon actions next to admin `Copy` + `Open` link controls.
+- QR actions are available in both:
+  - newly generated stream links (`Your three links`),
+  - existing links in `Recent streams`.
+- Added a lightweight QR modal overlay that shows:
+  - generated QR for the selected URL,
+  - link role label (`Viewer`, `Host camera phone`, `Buddy inventory phone`),
+  - stream name for session context,
+  - full link text.
+- Added mobile reliability behavior:
+  - tap outside modal (including corners/edges) closes popup,
+  - Android/back navigation closes QR first (history state push + popstate handling),
+  - body scroll lock while modal is open,
+  - `Esc` close support for desktop keyboard fallback.
+- Kept visual footprint intentionally minimal so QR action stays present but non-distracting.
+
+### Decisions
+
+- Keep implementation entirely client-side in admin page for fast iteration and no backend migration.
+- Use a small icon-only QR trigger to preserve existing control hierarchy (`Copy`/`Open` remain primary).
+- Include stream name in QR popup by default to reduce operator confusion during rapid multi-stream handling.
+
+### Risks / Open Questions
+
+- QR image currently uses external QR image generation endpoint; if connectivity is poor, operator may see delayed QR load.
+- If stricter offline reliability is needed later, replace external QR source with local in-app QR generation library.
+
+### Next
+
+- Optional: add a small “Download QR” action for sharing in WhatsApp/Telegram when needed.
+- Optional: add a tiny “Copied link role + stream name” helper text on QR open for extra confidence in high-speed operations.
+

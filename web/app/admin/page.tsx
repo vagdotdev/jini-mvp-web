@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 type CreateResponse = {
   demo?: boolean;
@@ -55,6 +55,12 @@ type OrdersResponse = {
   error?: string;
 };
 
+type QrPayload = {
+  url: string;
+  title: string;
+  streamName: string;
+};
+
 const STATUS_BADGE: Record<string, string> = {
   scheduled: "bg-zinc-200 text-zinc-700",
   live: "bg-rose-100 text-rose-800",
@@ -75,6 +81,7 @@ export default function AdminControlPage() {
   const [orders, setOrders] = useState<RecentOrder[] | null>(null);
   const [ordersErr, setOrdersErr] = useState<string | null>(null);
   const [copyToast, setCopyToast] = useState<string | null>(null);
+  const [activeQr, setActiveQr] = useState<QrPayload | null>(null);
   const [livekitChecking, setLivekitChecking] = useState(false);
   const [livekitStatus, setLivekitStatus] = useState<
     | { ok: true; url: string; apiKeyHint: string; roomCount: number }
@@ -242,6 +249,42 @@ export default function AdminControlPage() {
       });
   }
 
+  function openQr(url: string, title: string, streamName: string) {
+    setActiveQr({ url, title, streamName });
+  }
+
+  function closeQr() {
+    setActiveQr(null);
+  }
+
+  useEffect(() => {
+    if (!activeQr) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    if (window.history.state?.jiniQrModal !== true) {
+      window.history.pushState({ ...(window.history.state || {}), jiniQrModal: true }, "");
+    }
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setActiveQr(null);
+    };
+
+    const onPopState = () => {
+      setActiveQr(null);
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("popstate", onPopState);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("popstate", onPopState);
+    };
+  }, [activeQr]);
+
   return (
     <div className="min-h-full bg-[radial-gradient(circle_at_top_left,#fff7ed_0,#f7f2ea_34%,#eee7dc_70%,#e8ddcf_100%)] px-5 py-8 text-zinc-950">
       <div className="mx-auto flex max-w-5xl flex-col gap-8">
@@ -394,11 +437,21 @@ export default function AdminControlPage() {
                 ) : null}
                 {(
                   [
-                    ["Viewers", "Public audience link", result.viewer_url],
-                    ["Host", "Camera phone link", result.host_url],
-                    ["Buddy", "Inventory phone link", result.buddy_url],
+                    [
+                      "Viewers",
+                      "Public audience link",
+                      "Viewer link",
+                      result.viewer_url,
+                    ],
+                    ["Host", "Camera phone link", "Host camera phone link", result.host_url],
+                    [
+                      "Buddy",
+                      "Inventory phone link",
+                      "Buddy inventory phone link",
+                      result.buddy_url,
+                    ],
                   ] as const
-                ).map(([label, helper, url]) => (
+                ).map(([label, helper, qrTitle, url]) => (
                   <div
                     key={label}
                     className="rounded-2xl border border-zinc-200 bg-white p-4"
@@ -424,6 +477,28 @@ export default function AdminControlPage() {
                         >
                           Open
                         </a>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            openQr(url, qrTitle, result.title || result.slug || "Current stream")
+                          }
+                          aria-label={`Show QR for ${label} link`}
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-700 hover:bg-zinc-100"
+                        >
+                          <svg
+                            aria-hidden
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="h-3.5 w-3.5"
+                          >
+                            <path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3z" />
+                            <path d="M14 14h3v3h-3zM20 14h1v1h-1zM18 18h3v3h-3zM14 20h1v1h-1z" />
+                          </svg>
+                        </button>
                       </div>
                     </div>
                     <code className="block break-all rounded-xl bg-zinc-50 px-3 py-2 text-xs leading-5 text-zinc-700">
@@ -548,11 +623,11 @@ export default function AdminControlPage() {
                     <div className="mt-3 grid gap-2 sm:grid-cols-3">
                       {(
                         [
-                          ["Viewer", s.viewer_url],
-                          ["Host", s.host_url],
-                          ["Buddy", s.buddy_url],
+                          ["Viewer", "Viewer link", s.viewer_url],
+                          ["Host", "Host camera phone link", s.host_url],
+                          ["Buddy", "Buddy inventory phone link", s.buddy_url],
                         ] as const
-                      ).map(([label, url]) => (
+                      ).map(([label, qrTitle, url]) => (
                         <div
                           key={label}
                           className="flex items-center justify-between gap-2 rounded-lg bg-zinc-50 px-2 py-2"
@@ -576,6 +651,26 @@ export default function AdminControlPage() {
                             >
                               Open
                             </a>
+                            <button
+                              type="button"
+                              onClick={() => openQr(url, qrTitle, s.title || s.slug)}
+                              aria-label={`Show QR for ${label} link`}
+                              className="inline-flex h-5 w-5 items-center justify-center rounded-md border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-100"
+                            >
+                              <svg
+                                aria-hidden
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                className="h-3 w-3"
+                              >
+                                <path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3z" />
+                                <path d="M14 14h3v3h-3zM20 14h1v1h-1zM18 18h3v3h-3zM14 20h1v1h-1z" />
+                              </svg>
+                            </button>
                           </div>
                         </div>
                       ))}
@@ -694,6 +789,57 @@ export default function AdminControlPage() {
       {copyToast ? (
         <div className="pointer-events-none fixed bottom-5 right-5 z-50 rounded-xl bg-zinc-950/90 px-4 py-2 text-sm font-medium text-white shadow-2xl ring-1 ring-white/15 backdrop-blur">
           {copyToast}
+        </div>
+      ) : null}
+      {activeQr ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/50 p-3 sm:p-4"
+          onClick={() => {
+            if (window.history.state?.jiniQrModal) {
+              window.history.back();
+            } else {
+              closeQr();
+            }
+          }}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl bg-white p-4 shadow-2xl sm:p-5"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label={`${activeQr.title} QR code`}
+          >
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-zinc-900">Scan QR</p>
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.history.state?.jiniQrModal) {
+                    window.history.back();
+                  } else {
+                    closeQr();
+                  }
+                }}
+                className="rounded-lg border border-zinc-200 px-2 py-1 text-xs font-semibold text-zinc-600 hover:bg-zinc-50"
+              >
+                Close
+              </button>
+            </div>
+            <img
+              src={`https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(activeQr.url)}`}
+              alt={`${activeQr.title} QR code`}
+              className="mx-auto aspect-square w-full max-w-[280px] rounded-xl border border-zinc-200 bg-white"
+            />
+            <p className="mt-3 text-center text-sm font-semibold text-zinc-900">
+              {activeQr.title}
+            </p>
+            <p className="mt-1 text-center text-xs text-zinc-600">
+              Stream: <span className="font-medium text-zinc-800">{activeQr.streamName}</span>
+            </p>
+            <p className="mt-1 break-all text-center text-[11px] text-zinc-500">
+              {activeQr.url}
+            </p>
+          </div>
         </div>
       ) : null}
     </div>
