@@ -12,18 +12,9 @@ export default async function HostPage({ params }: PageProps) {
           Camera phone
         </h1>
         <p className="mt-2 text-sm leading-relaxed text-zinc-600">
-          This is the broadcaster phone: start camera + mic here. Video needs a
-          free{" "}
-          <a
-            href="https://cloud.livekit.io/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="font-medium text-violet-600 underline-offset-2 hover:underline"
-          >
-            LiveKit Cloud
-          </a>{" "}
-          project and three env vars in <code className="text-xs">web/.env.local</code>
-          — the app shows exact steps if you tap &quot;Go live&quot; before that.
+          Tap <strong>Go live</strong> to start broadcasting. While live, your
+          camera fills the screen and viewer chat appears as a quiet ticker so
+          you can keep your eyes on the camera. Tap <em>Reply</em> to type back.
         </p>
       </div>
       <HostControl token={token} />

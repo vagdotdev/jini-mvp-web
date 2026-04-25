@@ -17,3 +17,11 @@ body {
   color: var(--foreground);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }
+
+/* Host viewfinder takes over the screen — lock background scroll and hide host page chrome behind it. */
+html.host-live,
+body.host-live {
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: #000;
+}
