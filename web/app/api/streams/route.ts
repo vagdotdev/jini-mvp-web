@@ -60,7 +60,12 @@ export async function GET(req: Request) {
 
 /**
  * DELETE /api/streams
- * Clears previous stream history and associated test data from the admin page.
+ * Bulk-ends all streams without deleting order history.
+ * Side-effects:
+ *   - marks all streams as ended
+ *   - cancels active/locked items and clears locks
+ *   - expires pending orders for affected items
+ *   - clears chat messages + stream access rows
  */
 export async function DELETE(req: Request) {
   if (!checkCreateSecret(req)) {
@@ -84,7 +89,7 @@ export async function DELETE(req: Request) {
 
   const streamIds = (streams || []).map((stream) => stream.id);
   if (streamIds.length === 0) {
-    return NextResponse.json({ cleared: 0 });
+    return NextResponse.json({ ended: 0, cleaned_items: 0, expired_orders: 0 });
   }
 
   const { data: items, error: itemLookupError } = await admin
@@ -96,35 +101,61 @@ export async function DELETE(req: Request) {
   }
 
   const itemIds = (items || []).map((item) => item.id);
+
+  const { error: endStreamsError } = await admin
+    .from("live_streams")
+    .update({ status: "ended", updated_at: new Date().toISOString() })
+    .in("id", streamIds);
+  if (endStreamsError) {
+    return NextResponse.json(
+      { error: friendlySupabaseKeyError(endStreamsError.message) },
+      { status: 500 },
+    );
+  }
+
+  let cleanedItems = 0;
+  let expiredOrders = 0;
   if (itemIds.length > 0) {
-    const { error: ordersError } = await admin
+    const { data: cleanedRows, error: itemUpdateError } = await admin
+      .from("stream_items")
+      .update({
+        status: "cancelled",
+        locked_by: null,
+        lock_expires_at: null,
+      })
+      .in("id", itemIds)
+      .in("status", ["active", "locked"])
+      .select("id");
+    if (itemUpdateError) {
+      return NextResponse.json({ error: itemUpdateError.message }, { status: 500 });
+    }
+    cleanedItems = cleanedRows?.length ?? 0;
+
+    const { data: expiredRows, error: ordersError } = await admin
       .from("orders")
-      .delete()
-      .in("item_id", itemIds);
+      .update({ status: "expired" })
+      .in("item_id", itemIds)
+      .eq("status", "pending")
+      .select("id");
     if (ordersError) {
       return NextResponse.json({ error: ordersError.message }, { status: 500 });
     }
+    expiredOrders = expiredRows?.length ?? 0;
   }
 
-  for (const table of ["chat_messages", "stream_access", "stream_items"] as const) {
+  for (const table of ["chat_messages", "stream_access"] as const) {
     const { error } = await admin.from(table).delete().in("stream_id", streamIds);
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
   }
 
-  const { error: deleteStreamsError } = await admin
-    .from("live_streams")
-    .delete()
-    .in("id", streamIds);
-  if (deleteStreamsError) {
-    return NextResponse.json(
-      { error: friendlySupabaseKeyError(deleteStreamsError.message) },
-      { status: 500 },
-    );
-  }
-
-  return NextResponse.json({ cleared: streamIds.length });
+  return NextResponse.json({
+    ended: streamIds.length,
+    cleaned_items: cleanedItems,
+    expired_orders: expiredOrders,
+    note: "Streams ended. Orders and stream history preserved.",
+  });
 }
 
 /**

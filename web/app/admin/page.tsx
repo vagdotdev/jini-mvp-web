@@ -165,7 +165,7 @@ export default function AdminControlPage() {
   async function clearPreviousStreams() {
     if (
       !confirm(
-        "Clear all previous streams? This removes stream links, items, chat, and orders for every stream.",
+        "End all streams now? This cancels active/locked items, expires pending reservations, and clears chat/access rows. Paid order history is preserved.",
       )
     ) {
       return;
@@ -184,7 +184,7 @@ export default function AdminControlPage() {
         return;
       }
       setResult(null);
-      setStreams([]);
+      await refreshAll();
     } catch (e) {
       setStreamsErr(e instanceof Error ? e.message : "Could not clear streams");
     } finally {
