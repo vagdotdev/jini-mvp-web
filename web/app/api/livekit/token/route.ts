@@ -2,10 +2,12 @@ import { AccessToken } from "livekit-server-sdk";
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
+  LIVEKIT_BAD_CONFIG_CODE,
   LIVEKIT_CLOUD_URL,
   LIVEKIT_KEYS_DOCS_URL,
   LIVEKIT_NOT_CONFIGURED_CODE,
 } from "@/lib/livekit/setup-messages";
+import { readLiveKitServerEnv } from "@/lib/livekit/server-env";
 import { logger, wrapRoute } from "@/lib/logger";
 
 type Role = "host" | "viewer";
@@ -15,18 +17,30 @@ export const GET = wrapRoute("api.livekit.token", async (req: Request) => {
   const role = (url.searchParams.get("role") || "viewer") as Role;
   const tokenOrSlug = url.searchParams.get(role === "host" ? "token" : "slug");
 
-  const livekitUrl = process.env.LIVEKIT_URL;
-  const apiKey = process.env.LIVEKIT_API_KEY;
-  const apiSecret = process.env.LIVEKIT_API_SECRET;
+  const lk = readLiveKitServerEnv();
   const admin = createAdminClient();
 
-  if (!livekitUrl || !apiKey || !apiSecret) {
+  if (!lk.configured) {
     return NextResponse.json(
       {
         error:
-          "LiveKit is not configured on the server. Add LIVEKIT_URL, LIVEKIT_API_KEY, and LIVEKIT_API_SECRET to web/.env.local, then restart npm run dev.",
+          "LiveKit is not configured on the server. Set LIVEKIT_URL, LIVEKIT_API_KEY, and LIVEKIT_API_SECRET (Vercel → Settings → Environment Variables) and Redeploy.",
         code: LIVEKIT_NOT_CONFIGURED_CODE,
         livekit_cloud_url: LIVEKIT_CLOUD_URL,
+        docs_url: LIVEKIT_KEYS_DOCS_URL,
+      },
+      { status: 503 },
+    );
+  }
+  if (lk.warnings.length) {
+    return NextResponse.json(
+      {
+        error:
+          "LiveKit env values look malformed: " +
+          lk.warnings.join(" ") +
+          " Fix in Vercel → Environment Variables and Redeploy.",
+        code: LIVEKIT_BAD_CONFIG_CODE,
+        warnings: lk.warnings,
         docs_url: LIVEKIT_KEYS_DOCS_URL,
       },
       { status: 503 },
@@ -68,7 +82,7 @@ export const GET = wrapRoute("api.livekit.token", async (req: Request) => {
   }
 
   const identity = `${role}-${crypto.randomUUID()}`;
-  const accessToken = new AccessToken(apiKey, apiSecret, {
+  const accessToken = new AccessToken(lk.apiKey, lk.apiSecret, {
     identity,
     name: role === "host" ? "Jini host" : "Jini viewer",
     ttl: role === "host" ? "24h" : "2h",
@@ -83,7 +97,7 @@ export const GET = wrapRoute("api.livekit.token", async (req: Request) => {
   });
 
   return NextResponse.json({
-    url: livekitUrl,
+    url: lk.url,
     token: await accessToken.toJwt(),
     room: stream.livekit_room_name,
   });

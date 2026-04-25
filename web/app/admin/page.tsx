@@ -75,6 +75,12 @@ export default function AdminControlPage() {
   const [orders, setOrders] = useState<RecentOrder[] | null>(null);
   const [ordersErr, setOrdersErr] = useState<string | null>(null);
   const [copyToast, setCopyToast] = useState<string | null>(null);
+  const [livekitChecking, setLivekitChecking] = useState(false);
+  const [livekitStatus, setLivekitStatus] = useState<
+    | { ok: true; url: string; apiKeyHint: string; roomCount: number }
+    | { ok: false; error: string; warnings?: string[] }
+    | null
+  >(null);
 
   const buildHeaders = useCallback(() => {
     const headers: Record<string, string> = {
@@ -193,6 +199,36 @@ export default function AdminControlPage() {
     }
   }
 
+  async function checkLiveKit() {
+    setLivekitChecking(true);
+    setLivekitStatus(null);
+    try {
+      const res = await fetch("/api/livekit/debug", { headers: buildHeaders() });
+      const json = (await res.json().catch(() => ({}))) as
+        | { ok: true; url: string; apiKeyHint: string; roomCount: number }
+        | { ok?: false; error?: string; warnings?: string[] };
+      if (res.ok && "ok" in json && json.ok) {
+        setLivekitStatus(json);
+      } else {
+        setLivekitStatus({
+          ok: false,
+          error:
+            ("error" in json && json.error) ||
+            res.statusText ||
+            "LiveKit check failed",
+          warnings: "warnings" in json ? json.warnings : undefined,
+        });
+      }
+    } catch (e) {
+      setLivekitStatus({
+        ok: false,
+        error: e instanceof Error ? e.message : "LiveKit check failed",
+      });
+    } finally {
+      setLivekitChecking(false);
+    }
+  }
+
   function copy(text: string, label?: string) {
     void navigator.clipboard
       .writeText(text)
@@ -276,6 +312,47 @@ export default function AdminControlPage() {
                 {err}
               </p>
             ) : null}
+
+            <div className="mt-6 rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-zinc-900">LiveKit health</p>
+                  <p className="mt-0.5 text-xs text-zinc-500">
+                    Verifies that the URL + key + secret on the server are from the
+                    same LiveKit project. Run this if going live shows
+                    “invalid token”.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={livekitChecking}
+                  onClick={() => void checkLiveKit()}
+                  className="rounded-xl bg-zinc-900 px-3 py-2 text-xs font-semibold text-white hover:bg-zinc-700 disabled:opacity-60"
+                >
+                  {livekitChecking ? "Testing…" : "Test LiveKit"}
+                </button>
+              </div>
+              {livekitStatus ? (
+                livekitStatus.ok ? (
+                  <p className="mt-3 rounded-xl bg-emerald-50 px-3 py-2 text-xs leading-5 text-emerald-900">
+                    LiveKit OK · url <code>{livekitStatus.url}</code> · key{" "}
+                    <code>{livekitStatus.apiKeyHint}</code> · {livekitStatus.roomCount}{" "}
+                    active room(s)
+                  </p>
+                ) : (
+                  <div className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-xs leading-5 text-red-800">
+                    <p>{livekitStatus.error}</p>
+                    {livekitStatus.warnings?.length ? (
+                      <ul className="mt-1 list-disc pl-4">
+                        {livekitStatus.warnings.map((w) => (
+                          <li key={w}>{w}</li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </div>
+                )
+              ) : null}
+            </div>
           </section>
 
           <section className="rounded-[1.75rem] border border-white/70 bg-white/75 p-6 shadow-xl shadow-zinc-900/5 backdrop-blur">

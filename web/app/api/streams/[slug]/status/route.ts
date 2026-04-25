@@ -1,16 +1,11 @@
 import { NextResponse } from "next/server";
 import { RoomServiceClient } from "livekit-server-sdk";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { readLiveKitServerEnv, toLiveKitApiUrl } from "@/lib/livekit/server-env";
 
 type RouteContext = { params: Promise<{ slug: string }> };
 
 const ALLOWED_STATUSES = new Set(["scheduled", "live", "ended"]);
-
-function toLiveKitApiUrl(value: string): string {
-  if (value.startsWith("ws://")) return `http://${value.slice(5)}`;
-  if (value.startsWith("wss://")) return `https://${value.slice(6)}`;
-  return value;
-}
 
 function checkCreateSecret(req: Request) {
   const required = process.env.JINI_STREAM_CREATE_SECRET;
@@ -94,15 +89,13 @@ export async function POST(req: Request, context: RouteContext) {
       sender_display_name: "Jini",
     });
 
-    const livekitUrl = process.env.LIVEKIT_URL;
-    const apiKey = process.env.LIVEKIT_API_KEY;
-    const apiSecret = process.env.LIVEKIT_API_SECRET;
+    const lk = readLiveKitServerEnv();
     const roomName = stream.livekit_room_name;
-    if (livekitUrl && apiKey && apiSecret) {
+    if (lk.configured) {
       const roomService = new RoomServiceClient(
-        toLiveKitApiUrl(livekitUrl),
-        apiKey,
-        apiSecret,
+        toLiveKitApiUrl(lk.url),
+        lk.apiKey,
+        lk.apiSecret,
       );
       try {
         await roomService.deleteRoom(roomName);
