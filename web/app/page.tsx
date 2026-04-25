@@ -67,10 +67,10 @@ export default function Home() {
           Sarojini market, to your home.
         </h1>
       </div>
-      <JoinForm />
       <div className="max-w-xl text-lg leading-relaxed text-zinc-600">
         <p>Jini - a new wave of shopping in India.</p>
       </div>
+      <JoinForm />
     </div>
   );
 }
