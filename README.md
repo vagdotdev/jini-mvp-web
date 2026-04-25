@@ -6,17 +6,28 @@ Live shopping MVP: Next.js app in **`web/`**, product brief and journal at repo 
 - **Run the app:** [web/README.md](./web/README.md)
 - **Journal snapshot:** [pjournal/25th-April-6am.md](./pjournal/25th-April-6am.md)
 
-## Git / GitHub
+## Git / GitHub (`vagdotdev` / `jini-mvp-web`)
 
-This folder is a git repo with an initial commit on `main`. There is **no** `origin` yet — GitHub cannot be created from this environment without your login.
+GitHub CLI is installed at **`/opt/homebrew/bin/gh`**. This repo is on branch **`main`**.
 
-1. On GitHub: **New repository** → name **`jini-mvp-web`** (or `jini-mvp-web` with your org) → **empty** (no README / no .gitignore).
-2. In a terminal on this machine:
+### One-time login (you must do this once in a real terminal)
+
+```bash
+/opt/homebrew/bin/gh auth login
+```
+
+Pick **GitHub.com** → **HTTPS** → **Login with a web browser**.  
+After that, `gh` can create repos and push from this machine (including from Cursor’s terminal).
+
+### Create the repo + push (after login)
 
 ```bash
 cd /Users/vagdev/Documents/jinimvpweb
-git remote add origin https://github.com/YOUR_USER/jini-mvp-web.git
-git push -u origin main
+./scripts/github-sync.sh
 ```
 
-Replace `YOUR_USER` with your GitHub username or org.
+That creates **`https://github.com/vagdotdev/jini-mvp-web`** if it does not exist yet, sets **`origin`**, and pushes **`main`**.
+
+### Let Cursor / agents run `gh` without a browser next time
+
+Create a **classic PAT** (or fine-grained token) on GitHub with **`repo`** scope. In Cursor, add an environment variable **`GH_TOKEN`** = that token (do **not** commit it). Then non-interactive commands like `gh repo view` and `git push` work in agent runs.
