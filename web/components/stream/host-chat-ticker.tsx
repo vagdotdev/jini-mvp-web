@@ -78,8 +78,6 @@ export function HostChatTicker({ hostToken, variant, slug }: HostChatTickerProps
   const [replyOpen, setReplyOpen] = useState(false);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
-  const [commerceEnabled, setCommerceEnabled] = useState(false);
-  const [commerceToggling, setCommerceToggling] = useState(false);
   const sinceRef = useRef<string | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -228,37 +226,6 @@ export function HostChatTicker({ hostToken, variant, slug }: HostChatTickerProps
     }
   }
 
-  // Sync commerce state from the polled stream metadata
-  useEffect(() => {
-    if (streamMeta) {
-      setCommerceEnabled((streamMeta as StreamMeta & { commerce_enabled?: boolean }).commerce_enabled ?? false);
-    }
-  }, [streamMeta]);
-
-  async function toggleCommerce() {
-    if (!slug || commerceToggling) return;
-    setCommerceToggling(true);
-    try {
-      const next = !commerceEnabled;
-      const res = await fetch(
-        `/api/streams/${encodeURIComponent(slug)}/commerce?token=${encodeURIComponent(hostToken)}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ enabled: next }),
-        },
-      );
-      if (res.ok) {
-        setCommerceEnabled(next);
-      } else {
-        const json = (await res.json().catch(() => ({}))) as { error?: string };
-        setError(json.error || "Toggle failed");
-      }
-    } finally {
-      setCommerceToggling(false);
-    }
-  }
-
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Escape") {
       e.preventDefault();
@@ -305,28 +272,9 @@ export function HostChatTicker({ hostToken, variant, slug }: HostChatTickerProps
                   ended
                 </span>
               ) : null}
-              {slug ? (
-                <button
-                  type="button"
-                  onClick={() => void toggleCommerce()}
-                  disabled={commerceToggling}
-                  title={commerceEnabled ? "Commerce ON — tap to pause buying" : "Commerce OFF — tap to open buying"}
-                  className={[
-                    "flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-semibold normal-case tracking-normal transition-colors disabled:opacity-60",
-                    commerceEnabled
-                      ? "bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-400/30 hover:bg-emerald-500/30"
-                      : "bg-zinc-700/60 text-zinc-300 ring-1 ring-white/10 hover:bg-zinc-700",
-                  ].join(" ")}
-                >
-                  <span
-                    className={[
-                      "h-1.5 w-1.5 rounded-full",
-                      commerceEnabled ? "bg-emerald-400" : "bg-zinc-500",
-                    ].join(" ")}
-                  />
-                  {commerceToggling ? "…" : commerceEnabled ? "Buying open" : "Buying closed"}
-                </button>
-              ) : null}
+              <span className="rounded-full bg-emerald-500/25 px-2.5 py-1 text-[10px] font-semibold normal-case tracking-normal text-emerald-100 ring-1 ring-emerald-300/40">
+                Shopping live
+              </span>
             </div>
           </div>
         ) : null}

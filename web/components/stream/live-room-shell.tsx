@@ -20,6 +20,7 @@ type StreamItem = {
   price_inr: number;
   size_label?: string | null;
   image_display_url?: string | null;
+  created_at?: string | null;
   status: "active" | "locked" | "sold" | "expired" | "cancelled";
   lock_expires_at?: string | null;
   locked_by?: string | null;
@@ -57,6 +58,15 @@ function fetchWithTimeout(
   });
 }
 
+function getPublishCountdownSeconds(item: StreamItem, nowMs: number) {
+  if (!item.created_at) return 0;
+  const publishedMs = Date.parse(item.created_at);
+  if (!Number.isFinite(publishedMs)) return 0;
+  const elapsed = nowMs - publishedMs;
+  if (elapsed >= 5000) return 0;
+  return Math.max(1, Math.ceil((5000 - elapsed) / 1000));
+}
+
 export function LiveRoomShell({ slug }: { slug: string }) {
   const [stream, setStream] = useState<StreamMeta | null>(null);
   const [items, setItems] = useState<StreamItem[]>(mockItems);
@@ -68,14 +78,25 @@ export function LiveRoomShell({ slug }: { slug: string }) {
   const [buyMessage, setBuyMessage] = useState<string | null>(null);
   const [purchaseSuccess, setPurchaseSuccess] =
     useState<PurchaseSuccess | null>(null);
+  const [exitingItems, setExitingItems] = useState<StreamItem[]>([]);
+  const [fadingItemIds, setFadingItemIds] = useState<Set<string>>(new Set());
   const [chatOpen, setChatOpen] = useState(false);
+  const [nowMs, setNowMs] = useState(() => Date.now());
   const [unread, setUnread] = useState(0);
   const [statusDismissed, setStatusDismissed] = useState(false);
   const chatOpenRef = useRef(false);
   const seenPurchaseMessageIdsRef = useRef<Set<string>>(new Set());
+  const prevVisibleIdsRef = useRef<string[]>([]);
+  const lastKnownItemsRef = useRef<Map<string, StreamItem>>(new Map());
+  const fadeTimersRef = useRef<Map<string, number>>(new Map());
   useEffect(() => {
     chatOpenRef.current = chatOpen;
   }, [chatOpen]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNowMs(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const lockItem = useCallback(
     async (itemId: string) => {
@@ -124,7 +145,7 @@ export function LiveRoomShell({ slug }: { slug: string }) {
           const { data: updated } = await supabase
             .from("stream_items")
             .select(
-              "id, name, price_inr, size_label, image_display_url, status, lock_expires_at, locked_by",
+              "id, name, price_inr, size_label, image_display_url, created_at, status, lock_expires_at, locked_by",
             )
             .eq("stream_id", stream.id)
             .in("status", ["active", "locked"])
@@ -193,7 +214,7 @@ export function LiveRoomShell({ slug }: { slug: string }) {
           const { data: updated } = await supabase
             .from("stream_items")
             .select(
-              "id, name, price_inr, size_label, image_display_url, status, lock_expires_at, locked_by",
+              "id, name, price_inr, size_label, image_display_url, created_at, status, lock_expires_at, locked_by",
             )
             .eq("stream_id", stream.id)
             .in("status", ["active", "locked"])
@@ -290,7 +311,7 @@ export function LiveRoomShell({ slug }: { slug: string }) {
         const { data: itemRows } = await supabase
           .from("stream_items")
           .select(
-            "id, name, price_inr, size_label, image_display_url, status, lock_expires_at, locked_by",
+            "id, name, price_inr, size_label, image_display_url, created_at, status, lock_expires_at, locked_by",
           )
           .eq("stream_id", data.id)
           .in("status", ["active", "locked"])
@@ -313,7 +334,7 @@ export function LiveRoomShell({ slug }: { slug: string }) {
               void supabase
                 .from("stream_items")
                 .select(
-                  "id, name, price_inr, size_label, image_display_url, status, lock_expires_at, locked_by",
+                  "id, name, price_inr, size_label, image_display_url, created_at, status, lock_expires_at, locked_by",
                 )
                 .eq("stream_id", data.id)
                 .in("status", ["active", "locked"])
@@ -455,6 +476,68 @@ export function LiveRoomShell({ slug }: { slug: string }) {
   );
 
   useEffect(() => {
+    for (const item of visibleItems) {
+      lastKnownItemsRef.current.set(item.id, item);
+    }
+  }, [visibleItems]);
+
+  useEffect(() => {
+    const currentIds = new Set(visibleItems.map((item) => item.id));
+    const removedIds = prevVisibleIdsRef.current.filter((id) => !currentIds.has(id));
+    if (removedIds.length) {
+      const removedItems = removedIds
+        .map((id) => lastKnownItemsRef.current.get(id))
+        .filter(Boolean) as StreamItem[];
+      if (removedItems.length) {
+        setExitingItems((prev) => {
+          const known = new Set(prev.map((item) => item.id));
+          return [...prev, ...removedItems.filter((item) => !known.has(item.id))];
+        });
+        window.requestAnimationFrame(() => {
+          setFadingItemIds((prev) => {
+            const next = new Set(prev);
+            for (const id of removedIds) next.add(id);
+            return next;
+          });
+        });
+        for (const id of removedIds) {
+          const existing = fadeTimersRef.current.get(id);
+          if (existing) window.clearTimeout(existing);
+          const timeout = window.setTimeout(() => {
+            setExitingItems((prev) => prev.filter((item) => item.id !== id));
+            setFadingItemIds((prev) => {
+              const next = new Set(prev);
+              next.delete(id);
+              return next;
+            });
+            fadeTimersRef.current.delete(id);
+          }, 700);
+          fadeTimersRef.current.set(id, timeout);
+        }
+      }
+    }
+    prevVisibleIdsRef.current = visibleItems.map((item) => item.id);
+  }, [visibleItems]);
+
+  useEffect(() => {
+    return () => {
+      for (const timeout of fadeTimersRef.current.values()) {
+        window.clearTimeout(timeout);
+      }
+      fadeTimersRef.current.clear();
+    };
+  }, []);
+
+  const renderedItems = useMemo(() => {
+    const visibleIds = new Set(visibleItems.map((item) => item.id));
+    const exitingOnly = exitingItems
+      .filter((item) => !visibleIds.has(item.id))
+      .map((item) => ({ ...item, _isExiting: true as const }));
+    const active = visibleItems.map((item) => ({ ...item, _isExiting: false as const }));
+    return [...exitingOnly, ...active];
+  }, [exitingItems, visibleItems]);
+
+  useEffect(() => {
     seenPurchaseMessageIdsRef.current.clear();
   }, [stream?.id]);
 
@@ -538,25 +621,22 @@ export function LiveRoomShell({ slug }: { slug: string }) {
 
             <div className="mt-4 min-h-0 flex-1 lg:mt-0 lg:flex lg:max-h-none lg:flex-col lg:justify-center">
               <div className="-mx-1 flex flex-col gap-3 lg:mx-0 lg:max-w-sm lg:space-y-3">
-                {/* Commerce state pill — only shown when there are items */}
                 {visibleItems.length > 0 && stream && (
                   <div className="inline-flex w-fit items-center gap-1.5 rounded-full bg-black/35 px-3 py-1 text-[11px] font-medium text-white/85 ring-1 ring-white/15 backdrop-blur">
-                    <span
-                      className={[
-                        "h-1.5 w-1.5 rounded-full bg-white/70",
-                        stream.commerce_enabled ? "animate-pulse" : "",
-                      ].join(" ")}
-                    />
-                    {stream.commerce_enabled
-                      ? "People are shopping"
-                      : "Shopping starts soon"}
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-300 animate-pulse" />
+                    People are shopping
                   </div>
                 )}
                 <div className="flex gap-3 overflow-x-auto overflow-y-visible pb-1 [-webkit-overflow-scrolling:touch] [scrollbar-width:thin] lg:mx-0 lg:flex-col lg:overflow-visible lg:pb-0">
-                  {visibleItems.map((item) => (
+                  {renderedItems.map((item) => (
                     <article
                       key={item.id}
-                      className="flex w-[min(100%,17.5rem)] shrink-0 snap-start gap-3 rounded-2xl bg-black/55 p-3 shadow-2xl ring-1 ring-white/10 backdrop-blur-md sm:w-[18.5rem] lg:w-full"
+                      className={[
+                        "flex w-[min(100%,17.5rem)] shrink-0 snap-start gap-3 rounded-2xl bg-black/55 p-3 shadow-2xl ring-1 ring-white/10 backdrop-blur-md transition duration-700 sm:w-[18.5rem] lg:w-full",
+                        item._isExiting && fadingItemIds.has(item.id)
+                          ? "translate-y-2 scale-95 opacity-0"
+                          : "translate-y-0 scale-100 opacity-100",
+                      ].join(" ")}
                     >
                       <div
                         className="h-24 w-20 shrink-0 rounded-xl bg-cover bg-center"
@@ -577,7 +657,11 @@ export function LiveRoomShell({ slug }: { slug: string }) {
                         <p className="text-xs text-white/70">
                           {item.size_label || "One-off market find"}
                         </p>
-                        {stream?.commerce_enabled && (() => {
+                        {(() => {
+                          const countdownSeconds =
+                            item._isExiting || item.status !== "active"
+                              ? 0
+                              : getPublishCountdownSeconds(item, nowMs);
                           const mineLocked =
                             item.status === "locked" && item.locked_by === myUserId;
                           const someoneElseLocked =
@@ -590,6 +674,8 @@ export function LiveRoomShell({ slug }: { slug: string }) {
                           let label: string;
                           if (confirmingId === item.id) label = "Paying…";
                           else if (lockingId === item.id) label = "Reserving…";
+                          else if (countdownSeconds > 0)
+                            label = `Live in ${countdownSeconds}s`;
                           else if (mineLocked)
                             label = `Confirm purchase · ₹${item.price_inr}`;
                           else if (someoneElseLocked) label = "Locked";
@@ -597,7 +683,12 @@ export function LiveRoomShell({ slug }: { slug: string }) {
                           return (
                             <button
                               type="button"
-                              disabled={busy || someoneElseLocked}
+                              disabled={
+                                busy ||
+                                someoneElseLocked ||
+                                item._isExiting ||
+                                countdownSeconds > 0
+                              }
                               onClick={onClick}
                               className={[
                                 "mt-3 flex min-h-11 w-full items-center justify-center rounded-xl px-3 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-80",
@@ -606,7 +697,7 @@ export function LiveRoomShell({ slug }: { slug: string }) {
                                   : "bg-violet-600 text-white hover:bg-violet-500 disabled:bg-zinc-600",
                               ].join(" ")}
                             >
-                              {label}
+                              {item._isExiting ? "Sold" : label}
                             </button>
                           );
                         })()}

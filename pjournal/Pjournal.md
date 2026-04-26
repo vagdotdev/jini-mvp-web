@@ -502,3 +502,38 @@ All future updates should be appended here as new dated entries.
 - Optional: add a small “Download QR” action for sharing in WhatsApp/Telegram when needed.
 - Optional: add a tiny “Copied link role + stream name” helper text on QR open for extra confidence in high-speed operations.
 
+---
+
+## 2026-04-26 10:05 (Sunday) — Commerce Always Live + Viewer Product Timing Polish
+
+### Done
+
+- Removed host-side commerce toggling flow; no manual on/off step during live.
+  - Host chat panel now shows passive `Shopping live` state.
+- Removed backend `commerce_enabled` gate in lock API so buyer reserve flow is always available.
+- Updated viewer item rail to keep purchase CTA present by default (no commerce flag dependency).
+- Added a per-item **5-second publish countdown** after buddy publish:
+  - button shows `Live in 5s ... 1s`,
+  - button stays disabled until countdown completes,
+  - then switches to normal `Buy now` / `Confirm purchase`.
+- Added sold/cancelled product exit polish in viewer:
+  - product card animates out (fade + slight scale/translate),
+  - CTA changes to `Sold` during exit and is disabled,
+  - animation is scoped to product card only (not full-screen).
+
+### Decisions
+
+- Keep shopping always-on to reduce host operational overhead and avoid accidental “buying closed” mistakes.
+- Keep publish countdown viewer-side only to preserve host and buddy speed while improving buyer clarity.
+- Keep sold animation subtle and localized to item cards for minimal distraction.
+
+### Risks / Open Questions
+
+- Countdown currently uses client-side `created_at` comparison; network/client clock skew can shift perceived seconds slightly.
+- If future moderation requires pausing sales globally, we will need a separate hard-stop flag path (different from previous host toggle UX).
+
+### Next
+
+- Optional: move publish countdown duration to a config constant/env for easier pilot tuning.
+- Optional: add tiny “just dropped” tag after countdown finishes to encourage immediate purchase action.
+
