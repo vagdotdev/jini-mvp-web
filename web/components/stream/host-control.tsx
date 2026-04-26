@@ -37,6 +37,7 @@ export function HostControl({ token }: HostControlProps) {
   const [error, setError] = useState<string | null>(null);
   const [showLiveKitSetup, setShowLiveKitSetup] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [activePanel, setActivePanel] = useState<"music" | "chat" | null>(null);
 
   const fetchToken = useCallback(async () => {
     setLoading(true);
@@ -79,6 +80,17 @@ export function HostControl({ token }: HostControlProps) {
     };
   }, [conn]);
 
+  useEffect(() => {
+    if (!activePanel) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setActivePanel(null);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [activePanel]);
+
   if (!conn) {
     return (
       <section className="rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm">
@@ -112,68 +124,118 @@ export function HostControl({ token }: HostControlProps) {
   }
 
   return (
-    /* Outer row: video left, chat right. Fixed full-screen, flex-row always. */
-    <div className="fixed inset-0 z-50 flex flex-row bg-black text-white">
+    <div className="fixed inset-0 z-50 bg-black text-white">
+      <LiveKitRoom
+        serverUrl={conn.url}
+        token={conn.token}
+        connect
+        video
+        audio
+        data-lk-theme="default"
+        style={{ height: "100%", width: "100%", position: "absolute", inset: 0 }}
+        onDisconnected={() => setConn(null)}
+        onError={(err) => setError(err.message)}
+      >
+        <div style={{ position: "absolute", inset: 0 }}>
+          <HostStage />
+        </div>
 
-      {/* ── LEFT: LiveKit video column ── */}
-      <div className="relative flex-1 min-w-0" style={{ height: "100dvh" }}>
-        <LiveKitRoom
-          serverUrl={conn.url}
-          token={conn.token}
-          connect
-          video
-          audio
-          data-lk-theme="default"
-          style={{ height: "100%", width: "100%", position: "absolute", inset: 0 }}
-          onDisconnected={() => setConn(null)}
-          onError={(err) => setError(err.message)}
+        <div
+          className="pointer-events-none absolute left-4 top-4 z-20 inline-flex items-center gap-2 rounded-full bg-black/60 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-white backdrop-blur ring-1 ring-white/10"
+          style={{ top: "calc(env(safe-area-inset-top, 0px) + 1rem)" }}
         >
-          {/* Video fills the whole left column */}
-          <div style={{ position: "absolute", inset: 0 }}>
-            <HostStage />
-          </div>
+          <span className="h-2 w-2 animate-pulse rounded-full bg-rose-500" />
+          Live
+        </div>
 
-          {/* Live pill top-left */}
+        {activePanel ? (
           <div
-            className="pointer-events-none absolute left-4 top-4 z-20 inline-flex items-center gap-2 rounded-full bg-black/60 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-white backdrop-blur ring-1 ring-white/10"
-            style={{ top: "calc(env(safe-area-inset-top, 0px) + 1rem)" }}
+            className="absolute inset-0 z-30 bg-black/30"
+            onClick={() => setActivePanel(null)}
+          />
+        ) : null}
+
+        {activePanel === "music" ? (
+          <div
+            className="absolute inset-x-3 top-14 z-40 md:left-auto md:right-4 md:top-4 md:w-96"
+            style={{ top: "calc(env(safe-area-inset-top, 0px) + 3.25rem)" }}
+            onClick={(e) => e.stopPropagation()}
           >
-            <span className="h-2 w-2 animate-pulse rounded-full bg-rose-500" />
-            Live
+            <HostMusicControls className="w-full rounded-3xl border border-white/25 bg-gradient-to-br from-white/18 via-white/10 to-white/5 p-3.5 text-white shadow-2xl shadow-black/40 backdrop-blur-xl" />
           </div>
+        ) : null}
 
-          <HostMusicControls />
-
-          {/* Controls floating center-bottom */}
-          <div className="absolute inset-x-0 bottom-6 z-20 flex justify-center">
-            <div className="rounded-2xl bg-black/60 px-3 py-1.5 backdrop-blur ring-1 ring-white/10">
-              <ControlBar
-                variation="minimal"
-                controls={{
-                  microphone: true,
-                  camera: true,
-                  screenShare: false,
-                  leave: true,
-                  chat: false,
-                }}
-              />
+        {activePanel === "chat" ? (
+          <div
+            className="absolute inset-x-3 top-14 z-40 md:left-auto md:right-4 md:w-[24rem]"
+            style={{
+              top: "calc(env(safe-area-inset-top, 0px) + 3.25rem)",
+              bottom: "calc(env(safe-area-inset-bottom, 0px) + 1rem)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-white/15 bg-zinc-950/96 shadow-2xl shadow-black/50 backdrop-blur-md">
+              <HostChatTicker hostToken={token} variant="panel" slug={conn.slug} />
             </div>
           </div>
+        ) : null}
 
-          {error ? (
-            <div className="absolute inset-x-0 top-16 z-30 mx-4 rounded-xl bg-amber-900/80 px-4 py-2 text-center text-xs text-amber-100">
-              {error}
-            </div>
-          ) : null}
+        <div
+          className="absolute right-3 z-40 flex flex-col gap-2 md:right-4"
+          style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 5.25rem)" }}
+        >
+          <button
+            type="button"
+            onClick={() => setActivePanel((prev) => (prev === "music" ? null : "music"))}
+            className={[
+              "rounded-full px-3 py-2 text-xs font-semibold shadow-lg backdrop-blur ring-1 transition",
+              activePanel === "music"
+                ? "bg-violet-500/90 text-white ring-violet-300/50"
+                : "bg-black/65 text-white ring-white/20 hover:bg-black/75",
+            ].join(" ")}
+          >
+            Music
+          </button>
+          <button
+            type="button"
+            onClick={() => setActivePanel((prev) => (prev === "chat" ? null : "chat"))}
+            className={[
+              "rounded-full px-3 py-2 text-xs font-semibold shadow-lg backdrop-blur ring-1 transition",
+              activePanel === "chat"
+                ? "bg-sky-500/85 text-white ring-sky-300/50"
+                : "bg-black/65 text-white ring-white/20 hover:bg-black/75",
+            ].join(" ")}
+          >
+            Chat
+          </button>
+        </div>
 
-          <RoomAudioRenderer />
-        </LiveKitRoom>
-      </div>
+        <div
+          className="absolute inset-x-0 z-20 flex justify-center px-3"
+          style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 0.75rem)" }}
+        >
+          <div className="rounded-2xl bg-black/60 px-3 py-1.5 backdrop-blur ring-1 ring-white/10">
+            <ControlBar
+              variation="minimal"
+              controls={{
+                microphone: true,
+                camera: true,
+                screenShare: false,
+                leave: true,
+                chat: false,
+              }}
+            />
+          </div>
+        </div>
 
-      {/* ── RIGHT: Chat panel (outside LiveKitRoom entirely) ── */}
-      <div className="flex h-full w-80 shrink-0 flex-col border-l border-white/10 bg-zinc-950">
-        <HostChatTicker hostToken={token} variant="panel" slug={conn.slug} />
-      </div>
+        {error ? (
+          <div className="absolute inset-x-0 top-16 z-30 mx-4 rounded-xl bg-amber-900/80 px-4 py-2 text-center text-xs text-amber-100">
+            {error}
+          </div>
+        ) : null}
+
+        <RoomAudioRenderer />
+      </LiveKitRoom>
     </div>
   );
 }
@@ -223,7 +285,7 @@ const FALLBACK_TRACKS: AudioTrack[] = [
   { file: "Homecoming.mpeg", label: "Homecoming", url: "/audio/Homecoming.mpeg" },
 ];
 
-function HostMusicControls() {
+function HostMusicControls({ className }: { className?: string }) {
   useRoomContext();
   const { localParticipant } = useLocalParticipant();
   const [tracks, setTracks] = useState<AudioTrack[]>(FALLBACK_TRACKS);
@@ -539,7 +601,12 @@ function HostMusicControls() {
   }, [busy, trackIdx, tracks.length]);
 
   return (
-    <div className="absolute right-3 top-3 z-30 w-[min(22rem,calc(100vw-1.25rem))] rounded-3xl border border-white/25 bg-gradient-to-br from-white/18 via-white/10 to-white/5 p-3.5 text-white shadow-2xl shadow-black/40 backdrop-blur-xl md:right-4 md:top-4 md:w-96">
+    <div
+      className={
+        className ||
+        "w-[min(22rem,calc(100vw-1.25rem))] rounded-3xl border border-white/25 bg-gradient-to-br from-white/18 via-white/10 to-white/5 p-3.5 text-white shadow-2xl shadow-black/40 backdrop-blur-xl"
+      }
+    >
       <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/70">
         Music
       </p>
