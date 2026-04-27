@@ -105,24 +105,35 @@ export default function AdminOrdersPage() {
             </Link>
           </div>
 
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            <input
-              className="h-9 w-48 rounded-xl border border-zinc-200 bg-zinc-50 px-3 text-xs text-zinc-950 outline-none ring-violet-500 placeholder:text-zinc-400 focus:border-violet-500 focus:bg-white focus:ring-2"
-              type="password"
-              value={secret}
-              onChange={(e) => setSecret(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && void loadOrders()}
-              placeholder="Secret"
-              autoComplete="off"
-              aria-label="Admin secret for orders"
-            />
+          <div className="mt-4 flex flex-wrap items-end gap-2">
+            <label className="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+              Enter secret
+              <input
+                className="h-9 w-48 rounded-xl border border-zinc-200 bg-zinc-50 px-3 text-xs font-normal normal-case tracking-normal text-zinc-950 outline-none ring-violet-500 placeholder:text-zinc-400 focus:border-violet-500 focus:bg-white focus:ring-2"
+                type="password"
+                value={secret}
+                onChange={(e) => setSecret(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && void loadOrders()}
+                placeholder="Secret"
+                autoComplete="off"
+                aria-label="Admin secret for orders"
+              />
+            </label>
             <button
               type="button"
               onClick={() => void loadOrders()}
               disabled={loading}
               className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 disabled:opacity-60"
             >
-              {loading ? "Loading..." : "Load orders"}
+              {loading ? "Unlocking..." : "Unlock"}
+            </button>
+            <button
+              type="button"
+              onClick={() => void loadOrders()}
+              disabled={loading}
+              className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 disabled:opacity-60"
+            >
+              {loading ? "Loading..." : "Refresh orders"}
             </button>
             <button
               type="button"
@@ -142,7 +153,7 @@ export default function AdminOrdersPage() {
 
           {orders === null ? (
             <p className="text-sm text-zinc-500">
-              Load orders to view paid purchases. If no payments yet, this will show an empty state.
+              Enter secret and press Unlock, or press Refresh orders if no secret is configured.
             </p>
           ) : orders.length === 0 ? (
             <p className="text-sm text-zinc-500">No new recent orders.</p>
