@@ -61,6 +61,17 @@ type QrPayload = {
   streamName: string;
 };
 
+type HealthSnapshot = {
+  checkedAt: string;
+  streamsApiMs: number;
+  liveStreams: number;
+  successfulCheckouts24h: number;
+  livekitOk: boolean;
+  livekitRooms: number;
+  healthState: "healthy" | "degraded" | "down";
+  healthReason: string;
+};
+
 const STATUS_BADGE: Record<string, string> = {
   scheduled: "bg-zinc-200 text-zinc-700",
   live: "bg-rose-100 text-rose-800",
@@ -88,6 +99,9 @@ export default function AdminControlPage() {
     | { ok: false; error: string; warnings?: string[] }
     | null
   >(null);
+  const [health, setHealth] = useState<HealthSnapshot | null>(null);
+  const [healthLoading, setHealthLoading] = useState(false);
+  const [healthErr, setHealthErr] = useState<string | null>(null);
 
   const buildHeaders = useCallback(() => {
     const headers: Record<string, string> = {
@@ -130,6 +144,83 @@ export default function AdminControlPage() {
   const refreshAll = useCallback(async () => {
     await Promise.all([refreshStreams(), refreshOrders()]);
   }, [refreshOrders, refreshStreams]);
+
+  const refreshHealth = useCallback(async () => {
+    setHealthLoading(true);
+    setHealthErr(null);
+    try {
+      const streamsStartedAt = performance.now();
+      const streamsRes = await fetch("/api/streams", { headers: buildHeaders() });
+      const streamsApiMs = Math.max(1, Math.round(performance.now() - streamsStartedAt));
+      const streamsJson = (await streamsRes.json().catch(() => ({}))) as ListResponse;
+      if (!streamsRes.ok) {
+        setHealthErr(streamsJson.error || streamsRes.statusText);
+        return;
+      }
+
+      const ordersRes = await fetch("/api/admin/orders?limit=200", {
+        headers: buildHeaders(),
+      });
+      const ordersJson = (await ordersRes.json().catch(() => ({}))) as OrdersResponse;
+      if (!ordersRes.ok) {
+        setHealthErr(ordersJson.error || ordersRes.statusText);
+        return;
+      }
+
+      const now = Date.now();
+      const inLast24h = (ordersJson.orders || []).filter((order) => {
+        const createdAtMs = Date.parse(order.created_at);
+        return Number.isFinite(createdAtMs) && now - createdAtMs <= 24 * 60 * 60 * 1000;
+      }).length;
+      const liveCount = (streamsJson.streams || []).filter((s) => s.status === "live").length;
+      const livekitRes = await fetch("/api/livekit/debug", { headers: buildHeaders() });
+      const livekitJson = (await livekitRes.json().catch(() => ({}))) as
+        | { ok: true; roomCount: number }
+        | { ok?: false; error?: string };
+      const livekitOk = Boolean(livekitRes.ok && "ok" in livekitJson && livekitJson.ok);
+      const livekitRooms =
+        livekitOk && "roomCount" in livekitJson ? Number(livekitJson.roomCount || 0) : 0;
+
+      let healthState: "healthy" | "degraded" | "down" = "healthy";
+      let healthReason = "All core checks passed.";
+      if (!livekitOk) {
+        healthState = "down";
+        healthReason = "LiveKit is not reachable/configured.";
+      } else if (streamsApiMs > 1200) {
+        healthState = "degraded";
+        healthReason = "Control API is slow right now.";
+      } else if (streamsApiMs > 700) {
+        healthState = "degraded";
+        healthReason = "Latency is elevated.";
+      }
+
+      setHealth({
+        checkedAt: new Date().toISOString(),
+        streamsApiMs,
+        liveStreams: liveCount,
+        successfulCheckouts24h: inLast24h,
+        livekitOk,
+        livekitRooms,
+        healthState,
+        healthReason,
+      });
+    } catch (e) {
+      setHealthErr(e instanceof Error ? e.message : "Could not load health data");
+    } finally {
+      setHealthLoading(false);
+    }
+  }, [buildHeaders]);
+
+  useEffect(() => {
+    void refreshHealth();
+  }, [refreshHealth]);
+
+  useEffect(() => {
+    const t = window.setInterval(() => {
+      void refreshHealth();
+    }, 15000);
+    return () => window.clearInterval(t);
+  }, [refreshHealth]);
 
   async function createStream() {
     setLoading(true);
@@ -303,25 +394,91 @@ export default function AdminControlPage() {
                 Sarojini live run.
               </p>
             </div>
-            <Link
-              href="/admin/wallet"
-              className="inline-flex shrink-0 items-center gap-2 rounded-2xl border border-white/25 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white shadow-sm backdrop-blur transition hover:border-white/40 hover:bg-white/20"
-            >
-              <svg
-                aria-hidden
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-4 w-4"
-              >
-                <path d="M3 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2H5a2 2 0 0 0 0 4h16v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" />
-                <circle cx="17" cy="11" r="1.2" fill="currentColor" />
-              </svg>
-              Top up wallets
-            </Link>
+            <div className="flex shrink-0 flex-col gap-3 md:items-end">
+              <div className="flex flex-wrap items-center gap-2">
+                <Link
+                  href="/admin/wallet"
+                  className="inline-flex items-center gap-2 rounded-2xl border border-white/25 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white shadow-sm backdrop-blur transition hover:border-white/40 hover:bg-white/20"
+                >
+                  <svg
+                    aria-hidden
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="h-4 w-4"
+                  >
+                    <path d="M3 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2H5a2 2 0 0 0 0 4h16v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" />
+                    <circle cx="17" cy="11" r="1.2" fill="currentColor" />
+                  </svg>
+                  Top up wallets
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => void refreshHealth()}
+                  disabled={healthLoading}
+                  className="inline-flex items-center rounded-2xl border border-white/25 bg-white/10 px-3 py-2 text-xs font-semibold text-white backdrop-blur hover:bg-white/20 disabled:opacity-60"
+                >
+                  {healthLoading ? "Checking…" : "Refresh health"}
+                </button>
+              </div>
+              <div className="w-full max-w-sm rounded-2xl border border-white/20 bg-white/10 px-4 py-3 backdrop-blur">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-violet-200">
+                    Health Dashboard
+                  </p>
+                  {health ? (
+                    <span className="text-[11px] text-zinc-300">
+                      {new Date(health.checkedAt).toLocaleTimeString()}
+                    </span>
+                  ) : null}
+                </div>
+                {healthErr ? (
+                  <p className="rounded-lg bg-red-500/20 px-2.5 py-2 text-xs text-red-100">
+                    {healthErr}
+                  </p>
+                ) : health ? (
+                  <div className="grid grid-cols-1 gap-2 text-xs text-zinc-100">
+                    <p
+                      className={`rounded-lg px-2.5 py-2 font-semibold ${
+                        health.healthState === "healthy"
+                          ? "bg-emerald-500/25 text-emerald-100"
+                          : health.healthState === "degraded"
+                            ? "bg-amber-500/25 text-amber-100"
+                            : "bg-rose-500/25 text-rose-100"
+                      }`}
+                    >
+                      {health.healthState === "healthy"
+                        ? "Healthy"
+                        : health.healthState === "degraded"
+                          ? "Degraded"
+                          : "Down"}{" "}
+                      · {health.healthReason}
+                    </p>
+                    <p className="rounded-lg bg-white/10 px-2.5 py-2">
+                      Stream API latency: <span className="font-semibold">{health.streamsApiMs} ms</span>
+                    </p>
+                    <p className="rounded-lg bg-white/10 px-2.5 py-2">
+                      LiveKit status:{" "}
+                      <span className="font-semibold">
+                        {health.livekitOk ? `Connected (${health.livekitRooms} rooms)` : "Unavailable"}
+                      </span>
+                    </p>
+                    <p className="rounded-lg bg-white/10 px-2.5 py-2">
+                      Live streams now: <span className="font-semibold">{health.liveStreams}</span>
+                    </p>
+                    <p className="rounded-lg bg-white/10 px-2.5 py-2">
+                      Successful checkouts (24h):{" "}
+                      <span className="font-semibold">{health.successfulCheckouts24h}</span>
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-xs text-zinc-300">Checking stream and checkout health…</p>
+                )}
+              </div>
+            </div>
           </div>
         </header>
 

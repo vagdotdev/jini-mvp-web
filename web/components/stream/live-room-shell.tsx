@@ -37,6 +37,21 @@ type StreamMeta = {
 
 const mockItems: StreamItem[] = [];
 
+function parseBoughtItemName(message: string | null | undefined) {
+  const text = (message ?? "").trim();
+  if (!text) return null;
+  const match = text.match(/bought\s+«([^»]+)»/i);
+  return match?.[1]?.trim() || null;
+}
+
+function parseBuyerName(message: string | null | undefined) {
+  const text = (message ?? "").trim();
+  if (!text) return null;
+  const match = text.match(/^(.+?)\s+bought\s+«/i);
+  const name = match?.[1]?.trim();
+  return name || null;
+}
+
 function fetchWithTimeout(
   input: RequestInfo | URL,
   init: RequestInit & { timeoutMs?: number } = {},
@@ -58,13 +73,8 @@ function fetchWithTimeout(
   });
 }
 
-function getPublishCountdownSeconds(item: StreamItem, nowMs: number) {
-  if (!item.created_at) return 0;
-  const publishedMs = Date.parse(item.created_at);
-  if (!Number.isFinite(publishedMs)) return 0;
-  const elapsed = nowMs - publishedMs;
-  if (elapsed >= 5000) return 0;
-  return Math.max(1, Math.ceil((5000 - elapsed) / 1000));
+function getPublishCountdownSeconds(_item: StreamItem, _nowMs: number) {
+  return 0;
 }
 
 export function LiveRoomShell({ slug }: { slug: string }) {
@@ -78,6 +88,10 @@ export function LiveRoomShell({ slug }: { slug: string }) {
   const [buyMessage, setBuyMessage] = useState<string | null>(null);
   const [purchaseSuccess, setPurchaseSuccess] =
     useState<PurchaseSuccess | null>(null);
+  const [purchaseCelebration, setPurchaseCelebration] = useState<{
+    id: string;
+    message: string;
+  } | null>(null);
   const [exitingItems, setExitingItems] = useState<StreamItem[]>([]);
   const [fadingItemIds, setFadingItemIds] = useState<Set<string>>(new Set());
   const [chatOpen, setChatOpen] = useState(false);
@@ -89,6 +103,9 @@ export function LiveRoomShell({ slug }: { slug: string }) {
   const prevVisibleIdsRef = useRef<string[]>([]);
   const lastKnownItemsRef = useRef<Map<string, StreamItem>>(new Map());
   const fadeTimersRef = useRef<Map<string, number>>(new Map());
+  const seenItemIdsRef = useRef<Set<string>>(new Set());
+  const pulseTimersRef = useRef<Map<string, number>>(new Map());
+  const [spotlightItemIds, setSpotlightItemIds] = useState<Set<string>>(new Set());
   useEffect(() => {
     chatOpenRef.current = chatOpen;
   }, [chatOpen]);
@@ -456,12 +473,24 @@ export function LiveRoomShell({ slug }: { slug: string }) {
             id?: string;
             message_type?: string;
             user_id?: string | null;
+            message?: string;
           };
           if (!row?.id || row.message_type !== "purchase") return;
           if (seenPurchaseMessageIdsRef.current.has(row.id)) return;
           seenPurchaseMessageIdsRef.current.add(row.id);
-          if (row.user_id && myUserId && row.user_id === myUserId) return;
-          playViewerPurchaseChime();
+          const boughtItemName = parseBoughtItemName(row.message);
+          if (!boughtItemName) return;
+          const mine = Boolean(row.user_id && myUserId && row.user_id === myUserId);
+          const buyerName = parseBuyerName(row.message);
+          setPurchaseCelebration({
+            id: row.id,
+            message: mine
+              ? `You bought ${boughtItemName}`
+              : buyerName
+                ? `${boughtItemName} was bought by ${buyerName}`
+                : `${boughtItemName} was bought`,
+          });
+          if (!mine) playViewerPurchaseChime();
         },
       )
       .subscribe();
@@ -469,6 +498,38 @@ export function LiveRoomShell({ slug }: { slug: string }) {
       void supabase.removeChannel(channel);
     };
   }, [myUserId, stream?.id]);
+
+  useEffect(() => {
+    if (!purchaseCelebration) return;
+    const t = window.setTimeout(() => setPurchaseCelebration(null), 1900);
+    return () => window.clearTimeout(t);
+  }, [purchaseCelebration]);
+
+  useEffect(() => {
+    const supabase = createBrowserSupabaseClient();
+    if (!supabase || !stream?.id) return;
+    let active = true;
+    const poll = window.setInterval(() => {
+      if (!active) return;
+      void supabase
+        .from("stream_items")
+        .select(
+          "id, name, price_inr, size_label, image_display_url, created_at, status, lock_expires_at, locked_by",
+        )
+        .eq("stream_id", stream.id)
+        .in("status", ["active", "locked"])
+        .order("created_at", { ascending: false })
+        .then(({ data }) => {
+          if (!active || !data) return;
+          setItems(data as StreamItem[]);
+        })
+        .catch(() => undefined);
+    }, 2200);
+    return () => {
+      active = false;
+      window.clearInterval(poll);
+    };
+  }, [stream?.id]);
 
   const visibleItems = useMemo(
     () => items.filter((item) => item.status !== "sold" && item.status !== "cancelled"),
@@ -478,6 +539,36 @@ export function LiveRoomShell({ slug }: { slug: string }) {
   useEffect(() => {
     for (const item of visibleItems) {
       lastKnownItemsRef.current.set(item.id, item);
+    }
+  }, [visibleItems]);
+
+  useEffect(() => {
+    if (!visibleItems.length) return;
+    const freshIds: string[] = [];
+    for (const item of visibleItems) {
+      if (!seenItemIdsRef.current.has(item.id)) {
+        seenItemIdsRef.current.add(item.id);
+        freshIds.push(item.id);
+      }
+    }
+    if (!freshIds.length) return;
+    setSpotlightItemIds((prev) => {
+      const next = new Set(prev);
+      for (const id of freshIds) next.add(id);
+      return next;
+    });
+    for (const id of freshIds) {
+      const existing = pulseTimersRef.current.get(id);
+      if (existing) window.clearTimeout(existing);
+      const t = window.setTimeout(() => {
+        setSpotlightItemIds((prev) => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
+        pulseTimersRef.current.delete(id);
+      }, 1150);
+      pulseTimersRef.current.set(id, t);
     }
   }, [visibleItems]);
 
@@ -525,6 +616,10 @@ export function LiveRoomShell({ slug }: { slug: string }) {
         window.clearTimeout(timeout);
       }
       fadeTimersRef.current.clear();
+      for (const timeout of pulseTimersRef.current.values()) {
+        window.clearTimeout(timeout);
+      }
+      pulseTimersRef.current.clear();
     };
   }, []);
 
@@ -636,6 +731,9 @@ export function LiveRoomShell({ slug }: { slug: string }) {
                         item._isExiting && fadingItemIds.has(item.id)
                           ? "translate-y-2 scale-95 opacity-0"
                           : "translate-y-0 scale-100 opacity-100",
+                        !item._isExiting && spotlightItemIds.has(item.id)
+                          ? "animate-[jiniSpotlightPulse_1100ms_ease-out_1]"
+                          : "",
                       ].join(" ")}
                     >
                       <div
@@ -768,6 +866,49 @@ export function LiveRoomShell({ slug }: { slug: string }) {
         onDismiss={() => setPurchaseSuccess(null)}
       />
 
+      {purchaseCelebration ? (
+        <div className="pointer-events-none fixed inset-0 z-[65] overflow-hidden">
+          <div className="absolute inset-0 bg-black/20" />
+          <div className="absolute inset-x-0 top-8 flex justify-center px-4">
+            <div className="rounded-full bg-white/95 px-5 py-2 text-sm font-semibold text-zinc-900 shadow-xl ring-1 ring-black/10">
+              {purchaseCelebration.message}
+            </div>
+          </div>
+          {Array.from({ length: 24 }).map((_, i) => (
+            <span
+              key={`${purchaseCelebration.id}-${i}`}
+              className="absolute h-2.5 w-2.5 animate-[jiniConfettiFall_1400ms_ease-out_forwards]"
+              style={{
+                left: `${(i * 37) % 100}%`,
+                top: "-8px",
+                background:
+                  i % 4 === 0
+                    ? "#a855f7"
+                    : i % 4 === 1
+                      ? "#f43f5e"
+                      : i % 4 === 2
+                        ? "#22c55e"
+                        : "#f59e0b",
+                transform: `rotate(${(i * 23) % 360}deg)`,
+                animationDelay: `${(i % 8) * 40}ms`,
+              }}
+            />
+          ))}
+          <style jsx global>{`
+            @keyframes jiniConfettiFall {
+              0% {
+                opacity: 1;
+                transform: translate3d(0, 0, 0) rotate(0deg);
+              }
+              100% {
+                opacity: 0;
+                transform: translate3d(0, 88vh, 0) rotate(540deg);
+              }
+            }
+          `}</style>
+        </div>
+      ) : null}
+
       {chatOpen ? (
         <div
           className="fixed inset-0 z-40 flex flex-col justify-end bg-black/60 backdrop-blur-sm lg:hidden"
@@ -793,6 +934,22 @@ export function LiveRoomShell({ slug }: { slug: string }) {
           </div>
         </div>
       ) : null}
+      <style jsx global>{`
+        @keyframes jiniSpotlightPulse {
+          0% {
+            transform: scale(0.992);
+            box-shadow: 0 0 0 0 rgba(196, 181, 253, 0);
+          }
+          35% {
+            transform: scale(1.012);
+            box-shadow: 0 0 0 10px rgba(196, 181, 253, 0.14);
+          }
+          100% {
+            transform: scale(1);
+            box-shadow: 0 0 0 0 rgba(196, 181, 253, 0);
+          }
+        }
+      `}</style>
     </div>
   );
 }

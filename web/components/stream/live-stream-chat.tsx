@@ -16,6 +16,8 @@ type LiveStreamChatProps = {
   streamId: string | null;
 };
 
+const QUICK_REACTIONS = ["🔥", "😍", "👏", "😂", "❤️", "🙌"] as const;
+
 function formatTime(iso: string) {
   try {
     return new Date(iso).toLocaleTimeString(undefined, {
@@ -123,9 +125,8 @@ export function LiveStreamChat({ streamId }: LiveStreamChatProps) {
     el.scrollTop = el.scrollHeight;
   }, [messages.length]);
 
-  async function send(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const text = draft.trim();
+  async function sendMessage(rawMessage: string) {
+    const text = rawMessage.trim();
     if (!text || !streamId) return;
 
     setSending(true);
@@ -151,7 +152,13 @@ export function LiveStreamChat({ streamId }: LiveStreamChatProps) {
         return [...prev, json.message!];
       });
     }
-    setDraft("");
+    return true;
+  }
+
+  async function send(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const sent = await sendMessage(draft);
+    if (sent) setDraft("");
   }
 
   if (!streamId) {
@@ -221,6 +228,21 @@ export function LiveStreamChat({ streamId }: LiveStreamChatProps) {
       {error ? (
         <p className="text-xs text-amber-200/90">{error}</p>
       ) : null}
+      <div className="flex shrink-0 items-center gap-2 overflow-x-auto pb-0.5">
+        {QUICK_REACTIONS.map((emoji) => (
+          <button
+            key={emoji}
+            type="button"
+            disabled={sending}
+            onClick={() => void sendMessage(emoji)}
+            className="inline-flex min-h-9 shrink-0 items-center justify-center rounded-full border border-white/15 bg-black/30 px-3 text-base leading-none hover:bg-black/45 disabled:opacity-50"
+            aria-label={`React ${emoji}`}
+            title={`React ${emoji}`}
+          >
+            <span aria-hidden>{emoji}</span>
+          </button>
+        ))}
+      </div>
       <form onSubmit={(e) => void send(e)} className="flex shrink-0 gap-2">
         <input
           value={draft}
