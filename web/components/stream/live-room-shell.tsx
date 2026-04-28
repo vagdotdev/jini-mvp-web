@@ -906,18 +906,6 @@ function LiveRoomShellInner({ slug }: { slug: string }) {
               }}
             />
           ))}
-          <style jsx global>{`
-            @keyframes jiniConfettiFall {
-              0% {
-                opacity: 1;
-                transform: translate3d(0, 0, 0) rotate(0deg);
-              }
-              100% {
-                opacity: 0;
-                transform: translate3d(0, 88vh, 0) rotate(540deg);
-              }
-            }
-          `}</style>
         </div>
       ) : null}
 
@@ -947,6 +935,16 @@ function LiveRoomShellInner({ slug }: { slug: string }) {
         </div>
       ) : null}
       <style jsx global>{`
+        @keyframes jiniConfettiFall {
+          0% {
+            opacity: 1;
+            transform: translate3d(0, 0, 0) rotate(0deg);
+          }
+          100% {
+            opacity: 0;
+            transform: translate3d(0, 88vh, 0) rotate(540deg);
+          }
+        }
         @keyframes jiniSpotlightPulse {
           0% {
             transform: scale(0.992);
