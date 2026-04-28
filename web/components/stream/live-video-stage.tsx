@@ -9,6 +9,7 @@ import {
   useTracks,
 } from "@livekit/components-react";
 import { LiveKitSetupNotice } from "@/components/stream/livekit-setup-notice";
+import { ViewerLiveKitMusicListener } from "@/components/stream/viewer-livekit-music-listener";
 import {
   LIVEKIT_NOT_CONFIGURED_CODE,
   type LiveKitTokenErrorBody,
@@ -97,6 +98,7 @@ export function LiveVideoStage({ slug }: LiveVideoStageProps) {
         onError={(err) => setError(err.message)}
       >
         <ViewerStage />
+        <ViewerLiveKitMusicListener />
         <RoomAudioRenderer />
       </LiveKitRoom>
     </div>

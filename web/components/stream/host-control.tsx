@@ -304,6 +304,14 @@ function HostMusicControls({ className }: { className?: string }) {
   const actionSeqRef = useRef(0);
   const currentTrack = tracks[trackIdx] ?? null;
 
+  useEffect(() => {
+    if (!localParticipant) return;
+    const payload = new TextEncoder().encode(
+      JSON.stringify({ type: "jini-music", playing: musicPlaying }),
+    );
+    void localParticipant.publishData(payload, { reliable: true }).catch(() => undefined);
+  }, [localParticipant, musicPlaying]);
+
   const beginAction = useCallback(
     (name: "start" | "transition" | "stop") => {
       actionSeqRef.current += 1;

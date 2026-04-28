@@ -40,6 +40,39 @@ body {
   }
 }
 
+/* Viewer live: subtle rhythmic pulse on location pill when host background music is on */
+@keyframes jiniLocationPillMusic {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(167, 139, 250, 0);
+  }
+  22% {
+    transform: scale(1.028);
+    box-shadow: 0 0 0 6px rgba(167, 139, 250, 0.12);
+  }
+  44% {
+    transform: scale(1.01);
+    box-shadow: 0 0 0 2px rgba(167, 139, 250, 0.06);
+  }
+  66% {
+    transform: scale(1.034);
+    box-shadow: 0 0 0 8px rgba(244, 114, 182, 0.1);
+  }
+}
+
+.jini-location-pill-music {
+  animation: jiniLocationPillMusic 0.52s ease-in-out infinite;
+  will-change: transform, box-shadow;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jini-location-pill-music {
+    animation: none;
+    box-shadow: none;
+  }
+}
+
 /* Host viewfinder takes over the screen — lock background scroll and hide host page chrome behind it. */
 html.host-live,
 body.host-live {

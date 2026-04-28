@@ -537,3 +537,39 @@ All future updates should be appended here as new dated entries.
 - Optional: move publish countdown duration to a config constant/env for easier pilot tuning.
 - Optional: add tiny “just dropped” tag after countdown finishes to encourage immediate purchase action.
 
+---
+
+## 2026-04-28 18:16 (Tuesday) — Music-Reactive Location Pill + Viewer Sync
+
+### Done
+
+- Added host-to-viewer music state sync via LiveKit data packets:
+  - host publishes `{ type: "jini-music", playing: boolean }` when music starts/stops.
+  - viewer listens inside the live room and updates UI state.
+- Added viewer music pulse context and provider:
+  - `web/lib/stream/viewer-music-pulse-context.tsx`
+  - wrapped `LiveRoomShell` with provider while preserving existing viewer logic.
+- Added viewer listener component:
+  - `web/components/stream/viewer-livekit-music-listener.tsx`
+  - wired into `LiveVideoStage` so music activity is detected from remote host data.
+- Added subtle rhythmic animation on the viewer location pill (`Sarojini Market`) when host music is active.
+  - animation is intentionally low-intensity and tasteful.
+  - respects `prefers-reduced-motion` by disabling motion for accessibility.
+- Fixed a TypeScript compatibility issue in viewer item polling promise handling (`PromiseLike` path) while implementing these changes.
+
+### Decisions
+
+- Use explicit host data messages instead of trying to infer state from audio levels/tracks for deterministic UI behavior.
+- Keep effect viewer-only and scoped to the location pill to avoid distracting the full screen.
+- Keep animation rhythm steady and subtle (not aggressive beat visualization) to preserve stream readability.
+
+### Risks / Open Questions
+
+- If host data packets are missed during reconnect edge cases, viewer pulse might briefly desync until next state packet.
+- If we add multiple host-side audio modes later, we may want to extend packet schema to include source/type metadata.
+
+### Next
+
+- Optional: send periodic heartbeat packets while music is playing for stronger reconnect recovery.
+- Optional: expose one “pulse intensity” setting in code constants for rapid live-tuning.
+

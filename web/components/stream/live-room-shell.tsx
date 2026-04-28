@@ -13,6 +13,10 @@ import {
   playViewerPurchaseChime,
   primePurchaseAudio,
 } from "@/lib/sounds/purchase-chimes";
+import {
+  ViewerMusicPulseProvider,
+  useViewerMusicPulse,
+} from "@/lib/stream/viewer-music-pulse-context";
 
 type StreamItem = {
   id: string;
@@ -77,7 +81,8 @@ function getPublishCountdownSeconds(_item: StreamItem, _nowMs: number) {
   return 0;
 }
 
-export function LiveRoomShell({ slug }: { slug: string }) {
+function LiveRoomShellInner({ slug }: { slug: string }) {
+  const { musicPulseActive } = useViewerMusicPulse();
   const [stream, setStream] = useState<StreamMeta | null>(null);
   const [items, setItems] = useState<StreamItem[]>(mockItems);
   const [walletBalancePaise, setWalletBalancePaise] = useState<number | null>(null);
@@ -519,11 +524,13 @@ export function LiveRoomShell({ slug }: { slug: string }) {
         .eq("stream_id", stream.id)
         .in("status", ["active", "locked"])
         .order("created_at", { ascending: false })
-        .then(({ data }) => {
-          if (!active || !data) return;
-          setItems(data as StreamItem[]);
-        })
-        .catch(() => undefined);
+        .then(
+          ({ data }) => {
+            if (!active || !data) return;
+            setItems(data as StreamItem[]);
+          },
+          () => undefined,
+        );
     }, 2200);
     return () => {
       active = false;
@@ -675,7 +682,12 @@ export function LiveRoomShell({ slug }: { slug: string }) {
 
               {/* Center top location notch */}
               <div className="pointer-events-none absolute left-1/2 top-[max(0.75rem,env(safe-area-inset-top))] z-20 -translate-x-1/2">
-                <div className="inline-flex items-center gap-1.5 rounded-full bg-black/35 px-3 py-2 text-xs text-white/85 ring-1 ring-white/15 backdrop-blur md:text-sm">
+                <div
+                  className={[
+                    "inline-flex items-center gap-1.5 rounded-full bg-black/35 px-3 py-2 text-xs text-white/85 ring-1 ring-white/15 backdrop-blur md:text-sm transition-[transform,box-shadow] duration-300",
+                    musicPulseActive ? "jini-location-pill-music" : "",
+                  ].join(" ")}
+                >
                   <svg className="h-3.5 w-3.5 shrink-0 opacity-70" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
                   </svg>
@@ -951,5 +963,13 @@ export function LiveRoomShell({ slug }: { slug: string }) {
         }
       `}</style>
     </div>
+  );
+}
+
+export function LiveRoomShell({ slug }: { slug: string }) {
+  return (
+    <ViewerMusicPulseProvider>
+      <LiveRoomShellInner slug={slug} />
+    </ViewerMusicPulseProvider>
   );
 }
