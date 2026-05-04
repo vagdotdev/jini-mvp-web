@@ -17,6 +17,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Jini Live",
   description: "Live shopping from the market — stream, buy, fulfill.",
+  icons: {
+    icon: "/icon.png",
+  },
 };
 
 export default function RootLayout({
