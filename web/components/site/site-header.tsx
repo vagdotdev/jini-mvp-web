@@ -20,6 +20,9 @@ export function SiteHeader() {
         Jini
       </Link>
       <nav className="flex items-center gap-4 text-xs font-medium text-zinc-500 sm:gap-6 sm:text-sm">
+        <Link href="/how-it-works" className="hover:text-zinc-900">
+          How It Works
+        </Link>
         <Link href="/refund" className="hover:text-zinc-900">
           Refund
         </Link>
