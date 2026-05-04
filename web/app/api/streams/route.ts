@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { nanoid } from "nanoid";
+import { RoomServiceClient } from "livekit-server-sdk";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getPublicAppUrl } from "@/lib/env";
+import { readLiveKitServerEnv, toLiveKitApiUrl } from "@/lib/livekit/server-env";
 
 function friendlySupabaseKeyError(message: string): string {
   const m = message.toLowerCase();
@@ -79,7 +81,7 @@ export async function DELETE(req: Request) {
 
   const { data: streams, error: streamError } = await admin
     .from("live_streams")
-    .select("id");
+    .select("id, livekit_room_name");
   if (streamError) {
     return NextResponse.json(
       { error: friendlySupabaseKeyError(streamError.message) },
@@ -87,7 +89,11 @@ export async function DELETE(req: Request) {
     );
   }
 
-  const streamIds = (streams || []).map((stream) => stream.id);
+  const streamRows = streams || [];
+  const streamIds = streamRows.map((stream) => stream.id);
+  const roomNames = streamRows
+    .map((stream) => stream.livekit_room_name)
+    .filter((room): room is string => typeof room === "string" && room.length > 0);
   if (streamIds.length === 0) {
     return NextResponse.json({ ended: 0, cleaned_items: 0, expired_orders: 0 });
   }
@@ -150,10 +156,35 @@ export async function DELETE(req: Request) {
     }
   }
 
+  let roomsClosed = 0;
+  let roomsFailed = 0;
+  const lk = readLiveKitServerEnv();
+  if (lk.configured && roomNames.length > 0) {
+    const roomService = new RoomServiceClient(
+      toLiveKitApiUrl(lk.url),
+      lk.apiKey,
+      lk.apiSecret,
+    );
+    for (const roomName of roomNames) {
+      try {
+        await roomService.deleteRoom(roomName);
+        roomsClosed += 1;
+      } catch (err) {
+        roomsFailed += 1;
+        console.warn("bulk stream close could not delete LiveKit room", {
+          roomName,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+  }
+
   return NextResponse.json({
     ended: streamIds.length,
     cleaned_items: cleanedItems,
     expired_orders: expiredOrders,
+    rooms_closed: roomsClosed,
+    rooms_failed: roomsFailed,
     note: "Streams ended. Orders and stream history preserved.",
   });
 }

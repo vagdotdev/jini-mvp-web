@@ -81,6 +81,22 @@ function getPublishCountdownSeconds(_item: StreamItem, _nowMs: number) {
   return 0;
 }
 
+function notifyPurchaseEvent(message: string) {
+  if (typeof window === "undefined" || !("Notification" in window)) return;
+  if (document.visibilityState === "visible") return;
+  if (Notification.permission === "granted") {
+    try {
+      void new Notification("Purchase update", { body: message });
+    } catch {
+      // no-op: browser can block in some contexts
+    }
+    return;
+  }
+  if (Notification.permission === "default") {
+    void Notification.requestPermission().catch(() => undefined);
+  }
+}
+
 function LiveRoomShellInner({ slug }: { slug: string }) {
   const { musicPulseActive } = useViewerMusicPulse();
   const [stream, setStream] = useState<StreamMeta | null>(null);
@@ -104,6 +120,7 @@ function LiveRoomShellInner({ slug }: { slug: string }) {
   const [unread, setUnread] = useState(0);
   const [statusDismissed, setStatusDismissed] = useState(false);
   const chatOpenRef = useRef(false);
+  const prevWalletBalanceRef = useRef<number | null>(null);
   const seenPurchaseMessageIdsRef = useRef<Set<string>>(new Set());
   const prevVisibleIdsRef = useRef<string[]>([]);
   const lastKnownItemsRef = useRef<Map<string, StreamItem>>(new Map());
@@ -503,6 +520,16 @@ function LiveRoomShellInner({ slug }: { slug: string }) {
       void supabase.removeChannel(channel);
     };
   }, [myUserId, stream?.id]);
+
+  useEffect(() => {
+    if (walletBalancePaise == null) return;
+    const prev = prevWalletBalanceRef.current;
+    prevWalletBalanceRef.current = walletBalancePaise;
+    if (prev == null || walletBalancePaise >= prev) return;
+    const spentInr = (prev - walletBalancePaise) / 100;
+    playViewerPurchaseChime();
+    notifyPurchaseEvent(`Wallet debited by ₹${spentInr.toLocaleString("en-IN")}.`);
+  }, [walletBalancePaise]);
 
   useEffect(() => {
     if (!purchaseCelebration) return;
