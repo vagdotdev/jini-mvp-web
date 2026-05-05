@@ -40,7 +40,7 @@ body {
   }
 }
 
-/* /homenew: infinite marquee for demo strip */
+/* Home: infinite marquee for demo strip */
 @keyframes jiniHomenewMarquee {
   0% {
     transform: translateX(0);
@@ -121,7 +121,7 @@ body.host-live {
   object-fit: cover !important;
 }
 
-/* /homenew marquee: on touch / no-hover, lighten default veil so clips read without hover */
+/* Home marquee: on touch / no-hover, lighten default veil so clips read without hover */
 @media (hover: none), (pointer: coarse) {
   .jini-marquee-card .jini-marquee-veil {
     background-color: rgba(0, 0, 0, 0.3) !important;

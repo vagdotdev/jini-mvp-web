@@ -7,11 +7,16 @@ type PageRevealProps = {
   children: ReactNode;
 };
 
-const EXCLUDED_PREFIXES = ["/admin", "/dev", "/homenew"];
+const EXCLUDED_PREFIXES = ["/admin", "/dev"] as const;
+
+function shouldSkipAscend(pathname: string) {
+  if (pathname === "/") return true;
+  return EXCLUDED_PREFIXES.some((p) => pathname.startsWith(p));
+}
 
 export function PageReveal({ children }: PageRevealProps) {
   const pathname = usePathname();
-  const shouldAnimate = !EXCLUDED_PREFIXES.some((p) => pathname.startsWith(p));
+  const shouldAnimate = !shouldSkipAscend(pathname);
 
   if (!shouldAnimate) {
     return <>{children}</>;
