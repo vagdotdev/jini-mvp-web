@@ -40,13 +40,13 @@ body {
   }
 }
 
-/* Home: infinite marquee for demo strip */
+/* Home: seamless infinite marquee (loop distance via --marquee-shift from JS) */
 @keyframes jiniHomenewMarquee {
-  0% {
-    transform: translateX(0);
+  from {
+    transform: translate3d(0, 0, 0);
   }
-  100% {
-    transform: translateX(-50%);
+  to {
+    transform: translate3d(calc(-1 * var(--marquee-shift, 0px)), 0, 0);
   }
 }
 
@@ -54,7 +54,16 @@ body {
   display: flex;
   width: max-content;
   gap: 1rem;
-  animation: jiniHomenewMarquee 42s linear infinite;
+}
+
+.jini-homenew-marquee-track--active {
+  animation: jiniHomenewMarquee var(--marquee-duration, 42s) linear infinite;
+  will-change: transform;
+}
+
+.jini-homenew-marquee-track--active:hover,
+.jini-homenew-marquee-track--active:focus-within {
+  animation-play-state: paused;
 }
 
 @media (min-width: 640px) {
@@ -64,8 +73,12 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .jini-homenew-marquee-track {
+  .jini-homenew-marquee-track--active {
     animation: none;
+  }
+
+  .jini-homenew-marquee-track {
+    transform: none;
   }
 }
 
