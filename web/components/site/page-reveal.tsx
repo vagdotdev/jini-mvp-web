@@ -7,7 +7,7 @@ type PageRevealProps = {
   children: ReactNode;
 };
 
-const EXCLUDED_PREFIXES = ["/admin", "/dev"];
+const EXCLUDED_PREFIXES = ["/admin", "/dev", "/homenew"];
 
 export function PageReveal({ children }: PageRevealProps) {
   const pathname = usePathname();
