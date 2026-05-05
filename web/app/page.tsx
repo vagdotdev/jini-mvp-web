@@ -1,20 +1,27 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import {
+  motion,
+  AnimatePresence,
+  useReducedMotion,
+  useInView,
+} from "framer-motion";
 
 const EASE = [0.32, 0.72, 0, 1] as const;
 const SOFT_OUT = [0.22, 1, 0.36, 1] as const;
 
 /** Hero = video5; marquee = 1, 2, 4. */
 function demoVideoSrc(demoNumber: number) {
-  return encodeURI(`/video demos/video${demoNumber}.mp4`);
+  return `/video-demos/video${demoNumber}.mp4`;
 }
 
-/** Hero: slower, gentle fade-from-black */
+/** Hero: fade scrim only after first decoded frame; prioritise full preload. */
 function VideoRevealHero({ delay = 0 }: { delay?: number }) {
   const src = demoVideoSrc(5);
+  const [frameReady, setFrameReady] = useState(false);
+
   return (
     <motion.div
       className="relative aspect-video w-full overflow-hidden rounded-2xl bg-black ring-1 ring-white/10"
@@ -22,30 +29,25 @@ function VideoRevealHero({ delay = 0 }: { delay?: number }) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 2.1, delay, ease: SOFT_OUT }}
     >
-      <motion.div
-        className="pointer-events-none absolute inset-0 z-[1] bg-black"
-        initial={{ opacity: 1 }}
-        animate={{ opacity: 0 }}
-        transition={{
-          duration: 2.35,
-          delay: delay + 0.15,
-          ease: [0.33, 1, 0.68, 1],
-        }}
-      />
-      <motion.video
-        className="absolute inset-0 h-full w-full object-cover"
+      <video
+        className={`absolute inset-0 z-0 h-full w-full object-cover transition-opacity duration-[1200ms] ease-out motion-reduce:transition-none ${frameReady ? "opacity-100" : "opacity-0"}`}
         src={src}
         autoPlay
         muted
         loop
         playsInline
-        preload="metadata"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
+        preload="auto"
+        onLoadedData={() => setFrameReady(true)}
+        onCanPlay={() => setFrameReady(true)}
+      />
+      <motion.div
+        className="pointer-events-none absolute inset-0 z-[1] bg-black"
+        initial={{ opacity: 1 }}
+        animate={{ opacity: frameReady ? 0 : 1 }}
         transition={{
-          duration: 2,
-          delay: delay + 0.45,
-          ease: SOFT_OUT,
+          duration: 2.35,
+          delay: frameReady ? delay + 0.15 : 0,
+          ease: [0.33, 1, 0.68, 1],
         }}
       />
     </motion.div>
@@ -88,24 +90,50 @@ function marqueeCaptionCopy(demoNumber: number): string {
   }
 }
 
-/** Marquee: dark veil + subdued picture until hover (no scrolling black slabs). */
-function MarqueeVideoCard({ demoNumber }: { demoNumber: number }) {
+/** Marquee: load source only once near viewport to avoid six heavy MP4s at once. */
+function MarqueeVideoCard({
+  demoNumber,
+  loadImmediately,
+}: {
+  demoNumber: number;
+  /** Static reduced-motion layout: only three tiles — load all at once. */
+  loadImmediately?: boolean;
+}) {
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const activeInView = useInView(wrapRef, {
+    once: true,
+    amount: 0.06,
+    margin: "160px",
+  });
+
+  const shouldLoad = !!loadImmediately || activeInView;
+
   const src = demoVideoSrc(demoNumber);
   const caption = marqueeCaptionCopy(demoNumber);
+
+  useEffect(() => {
+    if (!shouldLoad || !videoRef.current) return;
+    const el = videoRef.current;
+    void el.play().catch(() => {});
+  }, [shouldLoad, src]);
+
   return (
     <div
+      ref={wrapRef}
       className="jini-marquee-card group relative aspect-video w-[min(260px,85vw)] shrink-0 touch-manipulation overflow-hidden rounded-2xl bg-black ring-1 ring-white/[0.08] outline-none transition-[box-shadow] duration-[650ms] ease-[cubic-bezier(0.33,1,0.68,1)] focus-visible:ring-2 focus-visible:ring-violet-400 group-hover:z-[2] group-hover:shadow-2xl group-hover:shadow-black/55 group-focus-within:z-[2] group-focus-within:shadow-2xl group-focus-within:shadow-black/55 group-active:z-[2] group-active:shadow-2xl group-active:shadow-black/55 sm:w-[300px]"
       tabIndex={0}
       aria-label={caption || `Demo clip ${demoNumber}`}
     >
       <video
+        ref={videoRef}
         className="jini-marquee-video h-full w-full object-cover brightness-[0.78] saturate-[0.62] contrast-[1.03] transition-all duration-[650ms] ease-[cubic-bezier(0.33,1,0.68,1)] group-hover:scale-[1.075] group-hover:brightness-100 group-hover:saturate-100 group-hover:contrast-100 group-focus-within:scale-[1.075] group-focus-within:brightness-100 group-focus-within:saturate-100 group-focus-within:contrast-100 group-active:scale-[1.075] group-active:brightness-100 group-active:saturate-100 group-active:contrast-100"
-        src={src}
-        autoPlay
+        src={shouldLoad ? src : undefined}
+        autoPlay={shouldLoad}
         muted
         loop
         playsInline
-        preload="metadata"
+        preload={shouldLoad ? "auto" : "none"}
         aria-hidden
       />
       <div className="jini-marquee-veil pointer-events-none absolute inset-0 z-[1] bg-black/52 opacity-100 transition-opacity duration-[650ms] ease-[cubic-bezier(0.33,1,0.68,1)] group-hover:opacity-0 group-focus-within:opacity-0 group-active:opacity-0" />
@@ -171,7 +199,7 @@ function BlackVideoSection() {
           {prefersReducedMotion ? (
             <div className="mx-auto flex max-w-4xl flex-wrap justify-center gap-4 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:pl-[max(1.5rem,env(safe-area-inset-left))] sm:pr-[max(1.5rem,env(safe-area-inset-right))]">
               {strip.map((n) => (
-                <MarqueeVideoCard key={n} demoNumber={n} />
+                <MarqueeVideoCard key={n} demoNumber={n} loadImmediately />
               ))}
             </div>
           ) : (
