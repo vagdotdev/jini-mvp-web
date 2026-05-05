@@ -148,14 +148,84 @@ function MarqueeVideoCard({
   );
 }
 
+/** Paste stream link → open stream. `dark` matches the zinc-950 footer band. */
+function JoinForm({ variant = "light" }: { variant?: "light" | "dark" }) {
+  const [link, setLink] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const inputClass =
+    variant === "dark"
+      ? "w-full rounded-xl border border-zinc-600 bg-zinc-900/85 px-4 py-3 text-base text-zinc-50 shadow-inner shadow-black/30 placeholder:text-zinc-500 focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-violet-500/90 sm:max-w-sm sm:text-sm"
+      : "w-full rounded-xl border border-zinc-300 bg-white px-4 py-3 text-base text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-violet-500 sm:max-w-sm sm:text-sm";
+
+  const btnClass =
+    variant === "dark"
+      ? "inline-flex min-h-11 shrink-0 touch-manipulation items-center justify-center rounded-xl bg-violet-500 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-black/40 ring-1 ring-white/15 hover:bg-violet-400 active:bg-violet-600"
+      : "inline-flex min-h-11 shrink-0 touch-manipulation items-center justify-center rounded-xl bg-violet-600 px-6 py-3 text-sm font-semibold text-white shadow hover:bg-violet-700 active:bg-violet-800";
+
+  function handleJoin() {
+    setError(null);
+    const trimmed = link.trim();
+    if (!trimmed) {
+      setError("Please paste a stream link first.");
+      return;
+    }
+    const withScheme =
+      trimmed.startsWith("http://") || trimmed.startsWith("https://")
+        ? trimmed
+        : `https://${trimmed}`;
+    let parsed: URL;
+    try {
+      parsed = new URL(withScheme);
+    } catch {
+      setError("That doesn't look like a valid link.");
+      return;
+    }
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      setError("Only http and https links are allowed.");
+      return;
+    }
+    window.location.assign(parsed.href);
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+        <input
+          type="url"
+          value={link}
+          onChange={(e) => setLink(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleJoin()}
+          placeholder="Paste your stream link here"
+          className={inputClass}
+          autoComplete="off"
+          spellCheck={false}
+        />
+        <button type="button" onClick={handleJoin} className={btnClass}>
+          Join
+        </button>
+      </div>
+      {error && (
+        <p
+          className={
+            variant === "dark" ? "text-sm text-red-400" : "text-sm text-red-600"
+          }
+        >
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function BlackVideoSection() {
   const prefersReducedMotion = useReducedMotion();
   const strip = [1, 2, 4] as const;
 
   return (
-    <section className="bg-zinc-950 pb-16 pt-8 sm:pb-24 sm:pt-10">
+    <section className="flex min-h-[100dvh] flex-col bg-zinc-950 pt-4 pb-[max(3rem,env(safe-area-inset-bottom))] sm:pt-5">
       {/* Header */}
-      <div className="mx-auto max-w-4xl pb-2 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:pb-3 sm:pl-[max(1.5rem,env(safe-area-inset-left))] sm:pr-[max(1.5rem,env(safe-area-inset-right))]">
+      <div className="mx-auto w-full max-w-4xl shrink-0 pb-2 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:pb-3 sm:pl-[max(1.5rem,env(safe-area-inset-left))] sm:pr-[max(1.5rem,env(safe-area-inset-right))]">
         <motion.p
           className="text-left text-2xl font-semibold leading-snug tracking-[-1.2px] text-zinc-100 sm:text-3xl sm:leading-[1.35] md:text-4xl"
           initial={{ opacity: 0, y: 12 }}
@@ -184,12 +254,12 @@ function BlackVideoSection() {
       </div>
 
       {/* Hero */}
-      <div className="mx-auto mt-10 max-w-4xl pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:mt-12 sm:pl-[max(1.5rem,env(safe-area-inset-left))] sm:pr-[max(1.5rem,env(safe-area-inset-right))]">
+      <div className="mx-auto mt-8 w-full max-w-4xl shrink-0 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:mt-10 sm:pl-[max(1.5rem,env(safe-area-inset-left))] sm:pr-[max(1.5rem,env(safe-area-inset-right))]">
         <VideoRevealHero delay={0.12} />
       </div>
 
       {/* Marquee or static row */}
-      <div className="relative mt-14 overflow-hidden border-t border-white/10 pt-10 sm:mt-16 sm:pt-12">
+      <div className="relative mt-12 shrink-0 overflow-hidden border-t border-white/10 pt-8 sm:mt-14 sm:pt-11">
         <motion.div
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
@@ -209,6 +279,28 @@ function BlackVideoSection() {
               ))}
             </div>
           )}
+        </motion.div>
+      </div>
+
+      <div className="flex flex-1 flex-col justify-center border-t border-white/10 py-12 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:py-16 md:py-24 sm:pl-[max(1.5rem,env(safe-area-inset-left))] sm:pr-[max(1.5rem,env(safe-area-inset-right))]">
+        <motion.div
+          className="mx-auto w-full max-w-3xl"
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.65, ease: SOFT_OUT }}
+        >
+          <p className="text-sm font-semibold tracking-wide text-violet-400">
+            Jini Live
+          </p>
+          <h2 className="mt-2 text-4xl font-semibold tracking-tight text-zinc-50 sm:text-5xl">
+            Sarojini market, to your home.
+          </h2>
+          <p className="mt-4 max-w-xl text-lg leading-relaxed text-zinc-400">
+            Jini - a new wave of shopping in India.
+          </p>
+          <div className="mt-10">
+            <JoinForm variant="dark" />
+          </div>
         </motion.div>
       </div>
     </section>
@@ -258,81 +350,6 @@ function IntroSequence({ onComplete }: { onComplete: () => void }) {
   );
 }
 
-/** Stream link + Join only — Waitlist is beside the headline in the dark hero band */
-function JoinForm() {
-  const [link, setLink] = useState("");
-  const [error, setError] = useState<string | null>(null);
-
-  function handleJoin() {
-    setError(null);
-    const trimmed = link.trim();
-    if (!trimmed) {
-      setError("Please paste a stream link first.");
-      return;
-    }
-    const withScheme =
-      trimmed.startsWith("http://") || trimmed.startsWith("https://")
-        ? trimmed
-        : `https://${trimmed}`;
-    let parsed: URL;
-    try {
-      parsed = new URL(withScheme);
-    } catch {
-      setError("That doesn't look like a valid link.");
-      return;
-    }
-    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-      setError("Only http and https links are allowed.");
-      return;
-    }
-    window.location.assign(parsed.href);
-  }
-
-  return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-        <input
-          type="url"
-          value={link}
-          onChange={(e) => setLink(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleJoin()}
-          placeholder="Paste your stream link here"
-          className="w-full rounded-xl border border-zinc-300 bg-white px-4 py-3 text-base text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-violet-500 sm:max-w-sm sm:text-sm"
-          autoComplete="off"
-          spellCheck={false}
-        />
-        <button
-          type="button"
-          onClick={handleJoin}
-          className="inline-flex min-h-11 shrink-0 touch-manipulation items-center justify-center rounded-xl bg-violet-600 px-6 py-3 text-sm font-semibold text-white shadow hover:bg-violet-700 active:bg-violet-800"
-        >
-          Join
-        </button>
-      </div>
-      {error && <p className="text-sm text-red-600">{error}</p>}
-    </div>
-  );
-}
-
-function EndHero() {
-  return (
-    <div className="mx-auto flex min-h-full max-w-3xl flex-col gap-10 py-20 pl-[max(1.5rem,env(safe-area-inset-left))] pr-[max(1.5rem,env(safe-area-inset-right))]">
-      <div>
-        <p className="text-sm font-semibold tracking-wide text-violet-600">
-          Jini Live
-        </p>
-        <h1 className="mt-2 text-4xl font-semibold tracking-tight text-zinc-900 sm:text-5xl">
-          Sarojini market, to your home.
-        </h1>
-      </div>
-      <div className="max-w-xl text-lg leading-relaxed text-zinc-600">
-        <p>Jini - a new wave of shopping in India.</p>
-      </div>
-      <JoinForm />
-    </div>
-  );
-}
-
 export default function HomePage() {
   const [introComplete, setIntroComplete] = useState(false);
   const [showContent, setShowContent] = useState(false);
@@ -345,7 +362,7 @@ export default function HomePage() {
   }, [introComplete]);
 
   return (
-    <div className="overflow-x-hidden">
+    <div className="min-h-[100dvh] overflow-x-hidden bg-zinc-950">
       <AnimatePresence>
         {!introComplete && (
           <motion.div
@@ -358,25 +375,12 @@ export default function HomePage() {
         )}
       </AnimatePresence>
 
-      <section className="flex min-h-[100dvh] flex-col justify-center">
-        {showContent && (
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.55, ease: EASE }}
-          >
-            <EndHero />
-          </motion.div>
-        )}
-      </section>
-
       {showContent && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5, ease: EASE }}
         >
-          <div className="h-px w-full bg-zinc-200" aria-hidden />
           <BlackVideoSection />
         </motion.div>
       )}
