@@ -342,7 +342,7 @@ function IntroSequence({ onComplete }: { onComplete: () => void }) {
             transition={{ duration: 0.7, ease: EASE }}
             className="px-6 text-center text-3xl font-semibold tracking-tight text-zinc-900 sm:text-5xl"
           >
-            For the first time in 75 years.
+            for the first time ever.
           </motion.h1>
         )}
       </AnimatePresence>
