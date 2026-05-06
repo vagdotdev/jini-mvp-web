@@ -393,7 +393,9 @@ function BlackVideoSection() {
             }}
           >
             <Link
-              href="/contact"
+              href="https://docs.google.com/forms/d/e/1FAIpQLSfLfZD6-TbTSJhKUtUrolLoiwU1oWVQ_GQ3xSGOmsDpfYjzOg/viewform?usp=header"
+              target="_blank"
+              rel="noopener noreferrer"
               className="inline-flex min-h-11 shrink-0 touch-manipulation items-center justify-center gap-1.5 rounded-full bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-black/30 ring-1 ring-white/30 transition-[background-color,box-shadow,transform] duration-200 hover:bg-violet-500 hover:ring-white/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/95 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 active:scale-[0.98]"
             >
               Waitlist

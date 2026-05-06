@@ -52,8 +52,10 @@ function JoinForm() {
           >
             Join
           </button>
-          <button
-            type="button"
+          <a
+            href="https://docs.google.com/forms/d/e/1FAIpQLSfLfZD6-TbTSJhKUtUrolLoiwU1oWVQ_GQ3xSGOmsDpfYjzOg/viewform?usp=header"
+            target="_blank"
+            rel="noopener noreferrer"
             className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-zinc-900 px-6 py-3 text-sm font-semibold text-white shadow hover:bg-zinc-800 active:bg-zinc-950"
           >
             Waitlist
@@ -73,7 +75,7 @@ function JoinForm() {
                 strokeLinejoin="round"
               />
             </svg>
-          </button>
+          </a>
         </div>
       </div>
       {error && <p className="text-sm text-red-600">{error}</p>}
