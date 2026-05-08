@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useRef, useLayoutEffect, useCallback } from "react";
 import Link from "next/link";
+
+import { WAITLIST_FORM_URL } from "@/lib/waitlist";
 import {
   motion,
   AnimatePresence,
@@ -58,6 +60,7 @@ function VideoRevealHero({
         <video
           className={`absolute inset-0 z-0 h-full w-full object-cover transition-opacity duration-[1200ms] ease-out motion-reduce:transition-none ${frameReady ? "opacity-100" : "opacity-0"}`}
           src={src}
+          poster="/video-demos/hero-poster.svg"
           autoPlay
           muted
           loop
@@ -285,13 +288,28 @@ function JoinForm({ variant = "light" }: { variant?: "light" | "dark" }) {
 
   const inner = (
     <div className="flex flex-col gap-3">
+      {variant === "dark" ? (
+        <p className="text-sm leading-relaxed text-zinc-500">
+          Have a seller or host link? Paste it to open that stream. New here?{" "}
+          <a
+            href={WAITLIST_FORM_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Join the waitlist — opens Google Form in a new tab"
+            className="font-medium text-violet-400 underline decoration-violet-400/50 underline-offset-2 transition-colors hover:text-violet-300 hover:decoration-violet-300"
+          >
+            Join the waitlist
+          </a>
+          .
+        </p>
+      ) : null}
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
         <input
           type="url"
           value={link}
           onChange={(e) => setLink(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleJoin()}
-          placeholder="Paste your stream link here"
+          placeholder="Paste stream link"
           className={inputClass}
           autoComplete="off"
           spellCheck={false}
@@ -393,9 +411,10 @@ function BlackVideoSection() {
             }}
           >
             <a
-              href="https://docs.google.com/forms/d/e/1FAIpQLSfLfZD6-TbTSJhKUtUrolLoiwU1oWVQ_GQ3xSGOmsDpfYjzOg/viewform?usp=header"
+              href={WAITLIST_FORM_URL}
               target="_blank"
               rel="noopener noreferrer"
+              aria-label="Join the waitlist — opens Google Form in a new tab"
               className="relative z-10 inline-flex min-h-11 shrink-0 touch-manipulation items-center justify-center gap-1.5 rounded-full bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-black/30 ring-1 ring-white/30 transition-[background-color,box-shadow,transform] duration-200 hover:bg-violet-500 hover:ring-white/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/95 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 active:scale-[0.98]"
             >
               Waitlist
@@ -550,9 +569,31 @@ function IntroSequence({ onComplete }: { onComplete: () => void }) {
   );
 }
 
+const INTRO_SEEN_SESSION_KEY = "jini-home-intro-seen";
+
 export function HomePageClient() {
   const [introComplete, setIntroComplete] = useState(false);
   const [showContent, setShowContent] = useState(false);
+
+  useLayoutEffect(() => {
+    try {
+      if (sessionStorage.getItem(INTRO_SEEN_SESSION_KEY) === "1") {
+        setIntroComplete(true);
+        setShowContent(true);
+      }
+    } catch {
+      // private mode / disabled storage
+    }
+  }, []);
+
+  const handleIntroComplete = useCallback(() => {
+    try {
+      sessionStorage.setItem(INTRO_SEEN_SESSION_KEY, "1");
+    } catch {
+      // ignore
+    }
+    setIntroComplete(true);
+  }, []);
 
   useEffect(() => {
     if (introComplete) {
@@ -570,7 +611,7 @@ export function HomePageClient() {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.5, ease: EASE }}
           >
-            <IntroSequence onComplete={() => setIntroComplete(true)} />
+            <IntroSequence onComplete={handleIntroComplete} />
           </motion.div>
         )}
       </AnimatePresence>

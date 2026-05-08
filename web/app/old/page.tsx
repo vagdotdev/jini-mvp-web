@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 
+import { WAITLIST_FORM_URL } from "@/lib/waitlist";
+
 function JoinForm() {
   const [link, setLink] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -53,7 +55,7 @@ function JoinForm() {
             Join
           </button>
           <a
-            href="https://docs.google.com/forms/d/e/1FAIpQLSfLfZD6-TbTSJhKUtUrolLoiwU1oWVQ_GQ3xSGOmsDpfYjzOg/viewform?usp=header"
+            href={WAITLIST_FORM_URL}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-zinc-900 px-6 py-3 text-sm font-semibold text-white shadow hover:bg-zinc-800 active:bg-zinc-950"
