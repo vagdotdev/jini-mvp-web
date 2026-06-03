@@ -11,26 +11,33 @@ export async function middleware(request: NextRequest) {
   // If Supabase is not configured, let requests through (dev preview mode).
   if (!url || !anon) return response;
 
-  const supabase = createServerClient(url, anon, {
-    cookies: {
-      getAll() {
-        return request.cookies.getAll();
+  // Wrap the entire auth flow so a malformed cookie, a transient Supabase
+  // outage, or a stale refresh token never produces a 500 — which mobile
+  // browsers (especially in-app browsers) render as "This page couldn't load".
+  let user: { id: string } | null = null;
+  try {
+    const supabase = createServerClient(url, anon, {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) =>
+            request.cookies.set(name, value),
+          );
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set(name, value, options),
+          );
+        },
       },
-      setAll(cookiesToSet) {
-        cookiesToSet.forEach(({ name, value }) =>
-          request.cookies.set(name, value),
-        );
-        cookiesToSet.forEach(({ name, value, options }) =>
-          response.cookies.set(name, value, options),
-        );
-      },
-    },
-  });
+    });
 
-  // Always refresh the session so the cookie stays valid.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    const { data } = await supabase.auth.getUser();
+    user = data.user ?? null;
+  } catch {
+    // Treat any auth failure as "not signed in" rather than crashing.
+    user = null;
+  }
 
   const { pathname } = request.nextUrl;
 
