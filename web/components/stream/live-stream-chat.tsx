@@ -14,6 +14,12 @@ type ChatRow = {
 
 type LiveStreamChatProps = {
   streamId: string | null;
+  /**
+   * "sidebar" (default): full panel with scrollable message list + input form.
+   * "overlay": compact last-7-messages view rendered over the video on mobile.
+   *   No input — the shell's bottom bar handles sending in overlay mode.
+   */
+  variant?: "sidebar" | "overlay";
 };
 
 const QUICK_REACTIONS = ["🔥", "😍", "👏", "😂", "❤️", "🙌"] as const;
@@ -44,7 +50,7 @@ function rowLabel(
   return { primary: row.sender_display_name?.trim() || "Shopper" };
 }
 
-export function LiveStreamChat({ streamId }: LiveStreamChatProps) {
+export function LiveStreamChat({ streamId, variant = "sidebar" }: LiveStreamChatProps) {
   const [messages, setMessages] = useState<ChatRow[]>([]);
   const [draft, setDraft] = useState("");
   const [myUserId, setMyUserId] = useState<string | null>(null);
@@ -120,10 +126,11 @@ export function LiveStreamChat({ streamId }: LiveStreamChatProps) {
   }, [streamId]);
 
   useEffect(() => {
+    if (variant !== "sidebar") return;
     const el = listRef.current;
     if (!el) return;
     el.scrollTop = el.scrollHeight;
-  }, [messages.length]);
+  }, [messages.length, variant]);
 
   async function sendMessage(rawMessage: string) {
     const text = rawMessage.trim();
@@ -161,6 +168,53 @@ export function LiveStreamChat({ streamId }: LiveStreamChatProps) {
     if (sent) setDraft("");
   }
 
+  // ── OVERLAY MODE (mobile) ─────────────────────────────────────────────────
+  // Renders the last 7 messages as semi-transparent text over the video.
+  // No input — the shell bottom bar handles sending.
+  if (variant === "overlay") {
+    if (!streamId) return null;
+    const overlayMessages = messages.slice(-7);
+    return (
+      <div className="pointer-events-none flex flex-col justify-end gap-1.5">
+        {overlayMessages.map((row) => {
+          const { primary } = rowLabel(row, myUserId);
+          const isPurchase = row.message_type === "purchase";
+          const isSystem = row.message_type === "system";
+          return (
+            <div key={row.id} className="flex items-start gap-2">
+              <div
+                className={[
+                  "mt-[3px] h-2 w-2 shrink-0 rounded-full",
+                  isSystem
+                    ? "bg-amber-400"
+                    : isPurchase
+                      ? "bg-emerald-400"
+                      : "bg-violet-400",
+                ].join(" ")}
+              />
+              <p className="text-[12.5px] leading-snug [text-shadow:0_1px_4px_rgba(0,0,0,0.95),0_0_12px_rgba(0,0,0,0.7)]">
+                <span
+                  className={[
+                    "font-semibold",
+                    isSystem
+                      ? "text-amber-200"
+                      : isPurchase
+                        ? "text-emerald-200"
+                        : "text-violet-200",
+                  ].join(" ")}
+                >
+                  {primary}
+                </span>{" "}
+                <span className="text-white/95">{row.message}</span>
+              </p>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  // ── SIDEBAR MODE (desktop) ────────────────────────────────────────────────
   if (!streamId) {
     return (
       <p className="text-xs text-white/50">
@@ -243,18 +297,21 @@ export function LiveStreamChat({ streamId }: LiveStreamChatProps) {
           </button>
         ))}
       </div>
-      <form onSubmit={(e) => void send(e)} className="flex shrink-0 gap-2">
+      <form
+        onSubmit={(e) => void send(e)}
+        className="flex min-h-11 shrink-0 items-center rounded-full border border-white/[0.08] bg-white/[0.08] pl-4 pr-1.5 backdrop-blur-2xl"
+      >
         <input
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           placeholder="Say something…"
           maxLength={500}
-          className="min-h-11 min-w-0 flex-1 rounded-full border border-white/15 bg-black/35 px-4 py-2.5 text-sm text-white outline-none placeholder:text-white/40 focus:border-violet-500/60"
+          className="min-w-0 flex-1 border-0 bg-transparent py-2.5 text-sm text-white outline-none placeholder:text-white/45"
         />
         <button
           type="submit"
           disabled={sending || !draft.trim()}
-          className="min-h-11 shrink-0 rounded-full bg-violet-600 px-5 py-2 text-sm font-semibold text-white hover:bg-violet-500 disabled:opacity-50"
+          className="shrink-0 rounded-full bg-white px-4 py-1.5 text-xs font-bold text-zinc-900 transition-opacity hover:bg-white/90 disabled:opacity-50"
         >
           {sending ? "…" : "Send"}
         </button>

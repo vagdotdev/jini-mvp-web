@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Jini Live",
+  title: "Jini - Let's go shopping",
   description: "Live shopping from the market — stream, buy, fulfill.",
   icons: {
     icon: "/icon.png",

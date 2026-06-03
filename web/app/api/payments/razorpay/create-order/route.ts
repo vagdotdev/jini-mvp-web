@@ -14,8 +14,20 @@ type Body = {
 
 /**
  * POST /api/payments/razorpay/create-order
- * Creates a Razorpay Order for checkout. Prefer item_id when the viewer holds the lock.
- * When keys are missing, returns a structured stub so the UI can show "payments not wired yet".
+ *
+ * Authenticated route: creates a Razorpay Order the client can pass into Checkout.
+ *
+ * Body (one of):
+ * - `item_id` — must reference a `stream_items` row in `locked` state with `locked_by` = caller.
+ *   Amount = `price_inr * 100` paise; notes include stream/item metadata.
+ * - `amount_paise` — explicit amount (min 100) when not paying for a locked item (e.g. wallet top-up later).
+ *
+ * Responses:
+ * - Keys missing → 200 JSON `{ configured: false, amount_paise, currency, message }` (no order created).
+ * - Keys set → 200 JSON `{ configured: true, key_id, order }` for Checkout.
+ * - Razorpay / DB errors → 4xx/5xx with `{ error }`.
+ *
+ * @see web/lib/payments/README.md — pilot wallet vs Razorpay, env vars, production checklist.
  */
 export const POST = wrapRoute("api.payments.razorpay.create-order", async (req: Request) => {
   const supabase = await createServerSupabaseClient();

@@ -5,10 +5,19 @@ import { logger, wrapRoute } from "@/lib/logger";
 
 /**
  * POST /api/payments/razorpay/webhook
- * Configure this URL in Razorpay Dashboard → Webhooks when you go live.
- * Verifies X-Razorpay-Signature using RAZORPAY_WEBHOOK_SECRET.
  *
- * Next: on payment.captured, credit wallet or mark order paid (idempotent by payment id).
+ * Razorpay server-to-server events. Register this URL in Dashboard → Webhooks.
+ *
+ * Security:
+ * - When `RAZORPAY_WEBHOOK_SECRET` is set: require `X-Razorpay-Signature` = HMAC-SHA256(hex) of the
+ *   **raw** request body with that secret (same pattern as Razorpay’s webhook docs).
+ * - When unset: request is accepted for local dev only — **never** ship production without the secret.
+ *
+ * Current behavior: parses JSON, logs `event`, returns `{ received: true, event }`.
+ * Next: handle `payment.captured` (and related) idempotently — credit wallet or mark order paid
+ * using payment id as dedupe key; align with whatever `verify` persists.
+ *
+ * @see web/lib/payments/README.md
  */
 export const POST = wrapRoute("api.payments.razorpay.webhook", async (req: Request) => {
   const raw = await req.text();

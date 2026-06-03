@@ -1,12 +1,29 @@
 /**
- * Create a Razorpay Order (server-side). Amount is in paise (smallest currency unit).
- * Docs: https://razorpay.com/docs/api/orders/create/
+ * Server-side Razorpay Order creation (Basic auth with key id + secret).
+ *
+ * @see https://razorpay.com/docs/api/orders/create/
+ */
+
+export type RazorpayOrderResult = {
+  id: string;
+  amount: number;
+  currency: string;
+  receipt: string;
+};
+
+/**
+ * Creates an order in INR. Razorpay amounts are in **paise** (1 INR = 100 paise).
+ *
+ * @param amountPaise - Total to charge; must be ≥ 100 (minimum ₹1) per Razorpay rules used here
+ * @param receipt - Your reference string; truncated to 40 chars for the API
+ * @param notes - Optional metadata (visible in dashboard; do not put secrets here)
+ * @throws If keys missing, amount invalid, HTTP error, or response has no `id`
  */
 export async function createRazorpayOrder(params: {
   amountPaise: number;
   receipt: string;
   notes?: Record<string, string>;
-}): Promise<{ id: string; amount: number; currency: string; receipt: string }> {
+}): Promise<RazorpayOrderResult> {
   const keyId = process.env.RAZORPAY_KEY_ID?.trim();
   const keySecret = process.env.RAZORPAY_KEY_SECRET?.trim();
   if (!keyId || !keySecret) {

@@ -9,11 +9,11 @@ const metadataBase = new URL(
 
 export const metadata: Metadata = {
   metadataBase,
-  title: "India's live shopping marketplace",
+  title: "Jini - Let's go shopping",
   description:
     "Jini is India's live shopping marketplace. Preview how live runs feel, join the waitlist, and shop live from Sarojini — first stream May 26.",
   openGraph: {
-    title: "Jini Live — India's live shopping marketplace",
+    title: "Jini - Let's go shopping",
     description:
       "Preview live shopping on Jini. Join the waitlist for India's live shopping marketplace.",
     type: "website",
@@ -26,7 +26,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Jini Live — India's live shopping marketplace",
+    title: "Jini - Let's go shopping",
     description:
       "Preview live shopping on Jini. Join the waitlist for India's live shopping marketplace.",
   },

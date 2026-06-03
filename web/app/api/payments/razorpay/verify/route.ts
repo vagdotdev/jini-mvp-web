@@ -12,8 +12,23 @@ type Body = {
 
 /**
  * POST /api/payments/razorpay/verify
- * Client sends IDs after Razorpay Checkout success; server verifies HMAC.
- * Next: mark `orders` paid, `stream_items` sold, clear lock (implement when you go live).
+ *
+ * After Checkout succeeds in the browser, the client receives `razorpay_payment_id` and
+ * `razorpay_signature`. This route proves the payment was authorized for the given order
+ * using the shared `RAZORPAY_KEY_SECRET` (see `verifyRazorpayPaymentSignature`).
+ *
+ * Body: `{ razorpay_order_id, razorpay_payment_id, razorpay_signature }` (all required when configured).
+ *
+ * Responses:
+ * - Not logged in → 401
+ * - Keys not set → 200 `{ ok: false, configured: false, message }` (no crypto check)
+ * - Bad/missing fields → 400
+ * - Valid signature → 200 `{ ok: true, configured: true, next: "TODO: ..." }` — fulfillment still TODO
+ *
+ * Production: verify signature here **and** reconcile via Razorpay API + idempotent webhook handling
+ * (e.g. `payment.captured`) before marking items sold or crediting wallet.
+ *
+ * @see web/lib/payments/README.md
  */
 export const POST = wrapRoute("api.payments.razorpay.verify", async (req: Request) => {
   const supabase = await createServerSupabaseClient();

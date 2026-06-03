@@ -88,7 +88,7 @@ function notifyPurchaseEvent(message: string) {
     try {
       void new Notification("Purchase update", { body: message });
     } catch {
-      // no-op: browser can block in some contexts
+      // no-op
     }
     return;
   }
@@ -96,6 +96,76 @@ function notifyPurchaseEvent(message: string) {
     void Notification.requestPermission().catch(() => undefined);
   }
 }
+
+// ── Icons ──────────────────────────────────────────────────────────────────
+
+function IconEye({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="currentColor" viewBox="0 0 20 20">
+      <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+      <path
+        fillRule="evenodd"
+        d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z"
+        clipRule="evenodd"
+      />
+    </svg>
+  );
+}
+
+function IconPerson({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="currentColor" viewBox="0 0 20 20">
+      <path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" />
+    </svg>
+  );
+}
+
+function IconWallet({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M3 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2H5a2 2 0 0 0 0 4h16v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" />
+      <circle cx="17" cy="11" r="1.2" fill="currentColor" />
+    </svg>
+  );
+}
+
+function IconPin({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="currentColor" viewBox="0 0 20 20">
+      <path
+        fillRule="evenodd"
+        d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z"
+        clipRule="evenodd"
+      />
+    </svg>
+  );
+}
+
+function IconSend({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.269 20.876L5.999 12zm0 0h7.5" />
+    </svg>
+  );
+}
+
+// ── Main component ──────────────────────────────────────────────────────────
 
 function LiveRoomShellInner({ slug }: { slug: string }) {
   const { musicPulseActive } = useViewerMusicPulse();
@@ -107,20 +177,20 @@ function LiveRoomShellInner({ slug }: { slug: string }) {
   const [lockingId, setLockingId] = useState<string | null>(null);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [buyMessage, setBuyMessage] = useState<string | null>(null);
-  const [purchaseSuccess, setPurchaseSuccess] =
-    useState<PurchaseSuccess | null>(null);
+  const [purchaseSuccess, setPurchaseSuccess] = useState<PurchaseSuccess | null>(null);
   const [purchaseCelebration, setPurchaseCelebration] = useState<{
     id: string;
     message: string;
   } | null>(null);
   const [exitingItems, setExitingItems] = useState<StreamItem[]>([]);
   const [fadingItemIds, setFadingItemIds] = useState<Set<string>>(new Set());
-  const [chatOpen, setChatOpen] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
-  const [unread, setUnread] = useState(0);
   const [statusDismissed, setStatusDismissed] = useState(false);
-  const chatOpenRef = useRef(false);
-  const prevWalletBalanceRef = useRef<number | null>(null);
+
+  // Mobile chat input state
+  const [mobileDraft, setMobileDraft] = useState("");
+  const [mobileSending, setMobileSending] = useState(false);
+
   const seenPurchaseMessageIdsRef = useRef<Set<string>>(new Set());
   const prevVisibleIdsRef = useRef<string[]>([]);
   const lastKnownItemsRef = useRef<Map<string, StreamItem>>(new Map());
@@ -128,14 +198,65 @@ function LiveRoomShellInner({ slug }: { slug: string }) {
   const seenItemIdsRef = useRef<Set<string>>(new Set());
   const pulseTimersRef = useRef<Map<string, number>>(new Map());
   const [spotlightItemIds, setSpotlightItemIds] = useState<Set<string>>(new Set());
-  useEffect(() => {
-    chatOpenRef.current = chatOpen;
-  }, [chatOpen]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNowMs(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, []);
+
+  // ── Item CTA helper (shared between mobile and desktop card renders) ──────
+  const getItemCTAProps = useCallback(
+    (item: StreamItem & { _isExiting: boolean }) => {
+      const countdownSeconds =
+        item._isExiting || item.status !== "active"
+          ? 0
+          : getPublishCountdownSeconds(item, nowMs);
+      const mineLocked = item.status === "locked" && item.locked_by === myUserId;
+      const someoneElseLocked = item.status === "locked" && !mineLocked;
+      const busy = lockingId === item.id || confirmingId === item.id;
+      const onClick = mineLocked
+        ? () => void confirmPurchase(item.id)
+        : () => void lockItem(item.id);
+      let label: string;
+      if (confirmingId === item.id) label = "Paying…";
+      else if (lockingId === item.id) label = "Reserving…";
+      else if (countdownSeconds > 0) label = `Live in ${countdownSeconds}s`;
+      else if (mineLocked) label = `Confirm · ₹${item.price_inr}`;
+      else if (someoneElseLocked) label = "Locked";
+      else label = "Buy now";
+      return {
+        label: item._isExiting ? "Sold" : label,
+        onClick,
+        disabled: busy || someoneElseLocked || item._isExiting || countdownSeconds > 0,
+        mineLocked,
+      };
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [confirmingId, lockingId, myUserId, nowMs],
+  );
+
+  // ── Mobile chat send ──────────────────────────────────────────────────────
+  const sendMobileMessage = useCallback(
+    async (text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed || !stream?.id || mobileSending) return;
+      setMobileSending(true);
+      try {
+        await fetchWithTimeout("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ stream_id: stream.id, message: trimmed }),
+          timeoutMs: 8000,
+        });
+      } catch {
+        // silent fail — chat is best-effort on mobile
+      } finally {
+        setMobileSending(false);
+      }
+    },
+    [mobileSending, stream?.id],
+  );
 
   const lockItem = useCallback(
     async (itemId: string) => {
@@ -169,9 +290,7 @@ function LiveRoomShellInner({ slug }: { slug: string }) {
           if (res.status === 401) {
             setBuyMessage("Sign in (or use Skip Google) to reserve this item.");
           } else if (res.status === 403) {
-            setBuyMessage(
-              json.error || "Finish onboarding for this stream first.",
-            );
+            setBuyMessage(json.error || "Finish onboarding for this stream first.");
           } else if (res.status === 409) {
             setBuyMessage("Someone beat you to it — this item is already taken.");
           } else {
@@ -239,10 +358,7 @@ function LiveRoomShellInner({ slug }: { slug: string }) {
           } else if (res.status === 401) {
             setBuyMessage("Sign in to complete this purchase.");
           } else if (res.status === 409) {
-            setBuyMessage(
-              json.error ||
-                "Sorry — seller pulled this item. Try another one.",
-            );
+            setBuyMessage(json.error || "Sorry — seller pulled this item. Try another one.");
           } else {
             setBuyMessage(json.error || "Could not confirm purchase.");
           }
@@ -317,14 +433,12 @@ function LiveRoomShellInner({ slug }: { slug: string }) {
         setStream(data);
         setStatus("");
 
-        const joinRes = await fetchWithTimeout("/api/streams/join", {
+        await fetchWithTimeout("/api/streams/join", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
           body: JSON.stringify({ slug }),
         });
-        // Silent if join tracking fails; this should not distract viewers.
-        // Items + chat can still work via server APIs/realtime.
 
         if (!supabase) return;
         const { data: authUser } = await supabase.auth.getUser();
@@ -340,9 +454,7 @@ function LiveRoomShellInner({ slug }: { slug: string }) {
               | { wallet?: { balance_paise?: number } }
               | null;
             if (accountJson && active) {
-              setWalletBalancePaise(
-                Number(accountJson.wallet?.balance_paise ?? 0),
-              );
+              setWalletBalancePaise(Number(accountJson.wallet?.balance_paise ?? 0));
             }
           }
         }
@@ -391,8 +503,6 @@ function LiveRoomShellInner({ slug }: { slug: string }) {
 
     void boot();
 
-    // Light-weight poll for stream metadata (commerce_enabled, status).
-    // RLS blocks browser realtime on live_streams, so we poll the API.
     const metaPoll = window.setInterval(() => {
       if (!active) return;
       void fetchWithTimeout(`/api/streams/${slug}`, {
@@ -402,10 +512,11 @@ function LiveRoomShellInner({ slug }: { slug: string }) {
       })
         .then((res) => (res.ok ? res.json() : null))
         .then((data: StreamMeta | null) => {
-          if (data && active) setStream((prev) => ({ ...(prev ?? {} as StreamMeta), ...data }));
+          if (data && active) setStream((prev) => ({ ...(prev ?? ({} as StreamMeta)), ...data }));
         })
         .catch(() => undefined);
     }, 3000);
+
     const walletPoll = window.setInterval(() => {
       if (!active || !myUserId) return;
       void fetchWithTimeout("/api/account", {
@@ -431,51 +542,6 @@ function LiveRoomShellInner({ slug }: { slug: string }) {
       }
     };
   }, [myUserId, slug]);
-
-  useEffect(() => {
-    const supabase = createBrowserSupabaseClient();
-    if (!supabase || !stream?.id) return;
-    const channel = supabase
-      .channel(`stream-chat-unread:${stream.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "chat_messages",
-          filter: `stream_id=eq.${stream.id}`,
-        },
-        () => {
-          setUnread((prev) => {
-            const isMobile =
-              typeof window !== "undefined" && window.innerWidth < 1024;
-            if (chatOpenRef.current || !isMobile) return prev;
-            return prev + 1;
-          });
-        },
-      )
-      .subscribe();
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [stream?.id]);
-
-  useEffect(() => {
-    const handleUnlockAudio = () => {
-      void primePurchaseAudio();
-      window.removeEventListener("pointerdown", handleUnlockAudio);
-      window.removeEventListener("touchstart", handleUnlockAudio);
-    };
-    window.addEventListener("pointerdown", handleUnlockAudio, { once: true });
-    window.addEventListener("touchstart", handleUnlockAudio, {
-      once: true,
-      passive: true,
-    });
-    return () => {
-      window.removeEventListener("pointerdown", handleUnlockAudio);
-      window.removeEventListener("touchstart", handleUnlockAudio);
-    };
-  }, []);
 
   useEffect(() => {
     const supabase = createBrowserSupabaseClient();
@@ -530,6 +596,8 @@ function LiveRoomShellInner({ slug }: { slug: string }) {
     playViewerPurchaseChime();
     notifyPurchaseEvent(`Wallet debited by ₹${spentInr.toLocaleString("en-IN")}.`);
   }, [walletBalancePaise]);
+
+  const prevWalletBalanceRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!purchaseCelebration) return;
@@ -646,13 +714,9 @@ function LiveRoomShellInner({ slug }: { slug: string }) {
 
   useEffect(() => {
     return () => {
-      for (const timeout of fadeTimersRef.current.values()) {
-        window.clearTimeout(timeout);
-      }
+      for (const timeout of fadeTimersRef.current.values()) window.clearTimeout(timeout);
       fadeTimersRef.current.clear();
-      for (const timeout of pulseTimersRef.current.values()) {
-        window.clearTimeout(timeout);
-      }
+      for (const timeout of pulseTimersRef.current.values()) window.clearTimeout(timeout);
       pulseTimersRef.current.clear();
     };
   }, []);
@@ -670,30 +734,289 @@ function LiveRoomShellInner({ slug }: { slug: string }) {
     seenPurchaseMessageIdsRef.current.clear();
   }, [stream?.id]);
 
-  return (
-    <div className="min-h-full bg-black text-white">
-      <main className="relative mx-auto flex min-h-dvh max-w-[1440px] overflow-hidden">
-        <section className="relative flex flex-1 items-stretch">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,rgba(167,139,250,.22),transparent_34%),linear-gradient(135deg,#1f1a17,#09090b_58%,#15110f)]" />
-          <LiveVideoStage slug={slug} />
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-black/70 via-black/0 to-black/70" />
+  useEffect(() => {
+    const handleUnlockAudio = () => {
+      void primePurchaseAudio();
+      window.removeEventListener("pointerdown", handleUnlockAudio);
+      window.removeEventListener("touchstart", handleUnlockAudio);
+    };
+    window.addEventListener("pointerdown", handleUnlockAudio, { once: true });
+    window.addEventListener("touchstart", handleUnlockAudio, { once: true, passive: true });
+    return () => {
+      window.removeEventListener("pointerdown", handleUnlockAudio);
+      window.removeEventListener("touchstart", handleUnlockAudio);
+    };
+  }, []);
 
-          <div className="relative flex min-h-dvh flex-1 flex-col justify-between px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-5 lg:p-7">
+  // ── Shared item card animation classes ────────────────────────────────────
+  function itemAnimClasses(item: (typeof renderedItems)[0]) {
+    return [
+      item._isExiting && fadingItemIds.has(item.id)
+        ? "translate-y-2 scale-95 opacity-0"
+        : "translate-y-0 scale-100 opacity-100",
+      !item._isExiting && spotlightItemIds.has(item.id)
+        ? "animate-[jiniSpotlightPulse_1100ms_ease-out_1]"
+        : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
+  }
+
+  const walletFormatted =
+    walletBalancePaise != null
+      ? `₹${(walletBalancePaise / 100).toLocaleString("en-IN")}`
+      : null;
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+  return (
+    <div className="bg-black text-white">
+
+      {/* ════════════════════════════════════════════════════════════════════
+          MOBILE LAYOUT  (hidden on lg+)
+          Full-screen portrait view modelled on Instagram/TikTok Live:
+          • Video fills the screen
+          • Chat messages overlaid on the left, pointer-events-none
+          • Active items as a compact horizontal tray above the input bar
+          • Bottom input bar always visible
+      ════════════════════════════════════════════════════════════════════ */}
+      <main className="relative mx-auto flex min-h-dvh max-w-[1440px] overflow-hidden">
+
+        {/* Section holds video + both overlay layers */}
+        <section className="relative flex flex-1 items-stretch">
+
+          {/* Base tinted background (shows behind video while loading) */}
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,rgba(167,139,250,.22),transparent_34%),linear-gradient(135deg,#1f1a17,#09090b_58%,#15110f)]" />
+
+          {/* Single LiveKit instance shared by both layout layers */}
+          <LiveVideoStage slug={slug} />
+
+          {/* Side gradient for desktop (hides behind mobile layer on small screens) */}
+          <div className="pointer-events-none absolute inset-0 hidden bg-gradient-to-r from-black/70 via-black/0 to-black/70 lg:block" />
+
+          {/* ── MOBILE CONTENT LAYER ─────────────────────────────────────── */}
+          <div className="relative z-10 flex min-h-dvh flex-1 flex-col lg:hidden">
+
+            {/* Top scrim — header readability */}
+            <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-36 bg-gradient-to-b from-black/70 via-black/35 to-transparent" />
+            {/* Bottom scrim — chat + product readability */}
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-[55%] bg-gradient-to-t from-black/95 via-black/60 to-transparent" />
+
+            {/* ── Top bar ── */}
+            <header className="absolute inset-x-0 top-0 z-20 px-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="h-8 w-8 shrink-0 rounded-full bg-gradient-to-br from-amber-200 to-pink-400 ring-2 ring-white/60" />
+                  <span className="text-sm font-semibold leading-none">Jini</span>
+                  <span className="rounded-[4px] bg-emerald-500 px-1.5 py-[3px] text-[10px] font-bold leading-none tracking-wide">
+                    LIVE
+                  </span>
+                  {stream && (
+                    <span className="flex items-center gap-1 text-xs text-white/75">
+                      <IconEye className="h-3.5 w-3.5 opacity-70" />
+                      {stream.viewer_count ?? 0}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    className="flex h-7 w-7 items-center justify-center text-white/80"
+                    aria-label="More options"
+                  >
+                    <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                    </svg>
+                  </button>
+                  <Link
+                    href="/account"
+                    className="flex h-7 w-7 items-center justify-center text-white/80"
+                    aria-label="Close"
+                  >
+                    <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" viewBox="0 0 24 24">
+                      <path d="M18 6L6 18M6 6l12 12" />
+                    </svg>
+                  </Link>
+                </div>
+              </div>
+              {stream?.title && (
+                <p className="mt-1.5 text-xs text-white/70">
+                  Live shopping on Jini
+                </p>
+              )}
+            </header>
+
+            {/* ── Flex spacer — pushes all bottom content down ── */}
+            <div className="min-h-0 flex-1" />
+
+            {/* ── Chat overlay ── */}
+            <div className="relative z-20 max-h-[36vh] overflow-hidden px-3 pb-2 pr-[20%]">
+              <LiveStreamChat variant="overlay" streamId={stream?.id ?? null} />
+            </div>
+
+            {/* ── Chat input + quick reactions row ── */}
+            <div className="relative z-20 px-3 pb-2">
+              {/* Input row */}
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  const text = mobileDraft.trim();
+                  if (!text) return;
+                  setMobileDraft("");
+                  await sendMobileMessage(text);
+                }}
+                className="flex h-10 items-center rounded-full border border-white/10 bg-white/10 pl-4 pr-1 backdrop-blur-2xl"
+              >
+                <input
+                  value={mobileDraft}
+                  onChange={(e) => setMobileDraft(e.target.value)}
+                  placeholder="Send a message..."
+                  maxLength={500}
+                  className="h-full min-w-0 flex-1 border-0 bg-transparent text-[13px] text-white placeholder:text-white/55 outline-none"
+                />
+                <button
+                  type="submit"
+                  disabled={mobileSending || !mobileDraft.trim()}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white/80 transition-opacity disabled:opacity-35"
+                  aria-label="Send"
+                >
+                  <IconSend className="h-[0.95rem] w-[0.95rem]" />
+                </button>
+              </form>
+              {/* Quick reactions row */}
+              <div className="mt-2 flex gap-2 overflow-x-auto [-webkit-overflow-scrolling:touch] [scrollbar-width:none]">
+                {(["🔥", "😍", "👏", "😂", "❤️", "🙌"] as const).map((emoji) => (
+                  <button
+                    key={emoji}
+                    type="button"
+                    disabled={mobileSending}
+                    onClick={() => void sendMobileMessage(emoji)}
+                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/10 text-[15px] backdrop-blur-sm transition-colors active:bg-white/20 disabled:opacity-40"
+                    aria-label={`React ${emoji}`}
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* ── Status / buy message ── */}
+            {status && !statusDismissed && (
+              <div className="relative z-20 px-3 pb-1.5">
+                <div className="flex items-center gap-2 rounded-lg bg-black/40 px-3 py-1.5 text-xs text-white/70 backdrop-blur">
+                  <span className="flex-1">{status}</span>
+                  <button
+                    type="button"
+                    onClick={() => setStatusDismissed(true)}
+                    className="shrink-0 text-white/40 hover:text-white/70"
+                    aria-label="Dismiss"
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+            )}
+            {buyMessage && (
+              <div className="relative z-20 px-3 pb-1.5">
+                <p className="rounded-lg bg-amber-500/20 px-3 py-2 text-xs text-amber-100 ring-1 ring-amber-400/30">
+                  {buyMessage}
+                </p>
+              </div>
+            )}
+
+            {/* ── Featured product card + Buy CTA ── */}
+            {(() => {
+              const featuredItem = renderedItems[0] ?? null;
+              if (!featuredItem) return null;
+              const { label, onClick, disabled, mineLocked } = getItemCTAProps(featuredItem);
+              return (
+                <div className={[
+                  "relative z-20 transition-all duration-500",
+                  itemAnimClasses(featuredItem),
+                ].join(" ")}>
+                  {/* Product info card — dark glass floating over the video */}
+                  <div className="mx-3 flex items-center gap-3 rounded-[22px] border border-white/[0.15] bg-white/[0.12] p-2.5 backdrop-blur-[24px]">
+                    <div
+                      className="h-14 w-14 shrink-0 rounded-xl bg-zinc-800/40 bg-cover bg-center"
+                      style={{
+                        backgroundImage: featuredItem.image_display_url
+                          ? `url(${featuredItem.image_display_url})`
+                          : undefined,
+                      }}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-white">
+                        {featuredItem.name}
+                      </p>
+                      <div className="mt-0.5 flex items-baseline gap-1.5">
+                        <span className="text-sm font-bold text-white">
+                          ₹{featuredItem.price_inr}
+                        </span>
+                        <span className="text-xs text-white/50 line-through">
+                          ₹{Math.round(featuredItem.price_inr * 1.5)}
+                        </span>
+                      </div>
+                      <p className="mt-0.5 text-[11px] text-white/60">
+                        {featuredItem.size_label
+                          ? `Size: ${featuredItem.size_label}`
+                          : "One-off market find"}
+                      </p>
+                    </div>
+                    <svg className="h-5 w-5 shrink-0 text-white/50" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+                      <path d="M9 18l6-6-6-6" />
+                    </svg>
+                  </div>
+
+                  {/* Buy It Now CTA — solid white pill, the only opaque element */}
+                  <div className="px-3 pt-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+                    <button
+                      type="button"
+                      disabled={disabled}
+                      onClick={onClick}
+                      className={[
+                        "flex h-[52px] w-full items-center justify-center gap-2 rounded-full text-sm font-bold shadow-lg shadow-white/15 transition-colors disabled:cursor-not-allowed disabled:opacity-70",
+                        featuredItem._isExiting
+                          ? "bg-white/60 text-zinc-500"
+                          : mineLocked
+                            ? "bg-white text-emerald-600"
+                            : "bg-white text-zinc-900",
+                      ].join(" ")}
+                    >
+                      <span>{label === "Buy now" ? "Buy It Now" : label}</span>
+                      {!featuredItem._isExiting && !mineLocked && label === "Buy now" && (
+                        <>
+                          <span className="text-zinc-400">•</span>
+                          <span>₹{featuredItem.price_inr}</span>
+                          <span className="text-sm font-normal text-zinc-400 line-through">
+                            ₹{Math.round(featuredItem.price_inr * 1.5)}
+                          </span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Bottom safe area if no product */}
+            {renderedItems.length === 0 && (
+              <div className="relative z-20 h-[max(0.75rem,env(safe-area-inset-bottom))]" />
+            )}
+          </div>
+
+          {/* ── DESKTOP CONTENT LAYER ─────────────────────────────────────── */}
+          {/* Kept exactly as the original overlay — only hidden on mobile */}
+          <div className="relative hidden min-h-dvh flex-1 flex-col justify-between px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-5 lg:flex lg:p-7">
+
             <header className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-xl font-semibold tracking-tight sm:text-2xl">
-                    Jini
-                  </span>
+                  <span className="text-xl font-semibold tracking-tight sm:text-2xl">Jini</span>
                   <span className="rounded-md bg-violet-600 px-2 py-1 text-xs font-semibold">
                     LIVE
                   </span>
-                  {/* Viewers pill */}
                   {stream && (
                     <span className="inline-flex items-center gap-1 rounded-full bg-black/35 px-2.5 py-1 text-[11px] font-medium text-white/80 ring-1 ring-white/15 backdrop-blur">
-                      <svg className="h-3 w-3 shrink-0 opacity-70" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" />
-                      </svg>
+                      <IconPerson className="h-3 w-3 shrink-0 opacity-70" />
                       {`${stream.viewer_count ?? 0}K`}
                     </span>
                   )}
@@ -707,47 +1030,31 @@ function LiveRoomShellInner({ slug }: { slug: string }) {
                 </div>
               </div>
 
-              {/* Center top location notch */}
+              {/* Center location pill */}
               <div className="pointer-events-none absolute left-1/2 top-[max(0.75rem,env(safe-area-inset-top))] z-20 -translate-x-1/2">
                 <div
                   className={[
-                    "inline-flex items-center gap-1.5 rounded-full bg-black/35 px-3 py-2 text-xs text-white/85 ring-1 ring-white/15 backdrop-blur md:text-sm transition-[transform,box-shadow] duration-300",
+                    "inline-flex items-center gap-1.5 rounded-full bg-black/35 px-3 py-2 text-xs text-white/85 ring-1 ring-white/15 backdrop-blur transition-[transform,box-shadow] duration-300 md:text-sm",
                     musicPulseActive ? "jini-location-pill-music" : "",
                   ].join(" ")}
                 >
-                  <svg className="h-3.5 w-3.5 shrink-0 opacity-70" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
-                  </svg>
+                  <IconPin className="h-3.5 w-3.5 shrink-0 opacity-70" />
                   Sarojini Market
                 </div>
               </div>
 
               <div className="flex shrink-0 flex-col items-end gap-2">
-                {walletBalancePaise != null ? (
+                {walletFormatted && (
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-black/40 px-2.5 py-1 text-[11px] font-medium text-white/90 ring-1 ring-white/15 backdrop-blur">
-                    <svg
-                      className="h-3.5 w-3.5 shrink-0 opacity-80"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M3 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2H5a2 2 0 0 0 0 4h16v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" />
-                      <circle cx="17" cy="11" r="1.2" fill="currentColor" />
-                    </svg>
-                    ₹{(walletBalancePaise / 100).toLocaleString("en-IN")}
+                    <IconWallet className="h-3.5 w-3.5 shrink-0 opacity-80" />
+                    {walletFormatted}
                   </span>
-                ) : null}
+                )}
                 <Link
                   href="/account"
                   className="inline-flex items-center gap-1.5 rounded-full bg-black/40 px-3 py-2 text-xs font-medium text-white/90 ring-1 ring-white/15 backdrop-blur hover:bg-black/55"
                 >
-                  {/* Person icon */}
-                  <svg className="h-3.5 w-3.5 shrink-0 opacity-80" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" />
-                  </svg>
+                  <IconPerson className="h-3.5 w-3.5 shrink-0 opacity-80" />
                   Account
                 </Link>
               </div>
@@ -757,90 +1064,57 @@ function LiveRoomShellInner({ slug }: { slug: string }) {
               <div className="-mx-1 flex flex-col gap-3 lg:mx-0 lg:max-w-sm lg:space-y-3">
                 {visibleItems.length > 0 && stream && (
                   <div className="inline-flex w-fit items-center gap-1.5 rounded-full bg-black/35 px-3 py-1 text-[11px] font-medium text-white/85 ring-1 ring-white/15 backdrop-blur">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-300 animate-pulse" />
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-300" />
                     People are shopping
                   </div>
                 )}
                 <div className="flex gap-3 overflow-x-auto overflow-y-visible pb-1 [-webkit-overflow-scrolling:touch] [scrollbar-width:thin] lg:mx-0 lg:flex-col lg:overflow-visible lg:pb-0">
-                  {renderedItems.map((item) => (
-                    <article
-                      key={item.id}
-                      className={[
-                        "flex w-[min(100%,17.5rem)] shrink-0 snap-start gap-3 rounded-2xl bg-black/55 p-3 shadow-2xl ring-1 ring-white/10 backdrop-blur-md transition duration-700 sm:w-[18.5rem] lg:w-full",
-                        item._isExiting && fadingItemIds.has(item.id)
-                          ? "translate-y-2 scale-95 opacity-0"
-                          : "translate-y-0 scale-100 opacity-100",
-                        !item._isExiting && spotlightItemIds.has(item.id)
-                          ? "animate-[jiniSpotlightPulse_1100ms_ease-out_1]"
-                          : "",
-                      ].join(" ")}
-                    >
-                      <div
-                        className="h-24 w-20 shrink-0 rounded-xl bg-cover bg-center"
-                        style={{
-                          backgroundImage: item.image_display_url
-                            ? `url(${item.image_display_url})`
-                            : undefined,
-                        }}
-                      />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium">{item.name}</p>
-                        <p className="mt-1 text-lg font-bold text-rose-400">
-                          ₹{item.price_inr}
-                          <span className="ml-2 text-xs font-normal text-white/45 line-through">
-                            ₹{Math.round(item.price_inr * 1.5)}
-                          </span>
-                        </p>
-                        <p className="text-xs text-white/70">
-                          {item.size_label || "One-off market find"}
-                        </p>
-                        {(() => {
-                          const countdownSeconds =
-                            item._isExiting || item.status !== "active"
-                              ? 0
-                              : getPublishCountdownSeconds(item, nowMs);
-                          const mineLocked =
-                            item.status === "locked" && item.locked_by === myUserId;
-                          const someoneElseLocked =
-                            item.status === "locked" && !mineLocked;
-                          const busy =
-                            lockingId === item.id || confirmingId === item.id;
-                          const onClick = mineLocked
-                            ? () => void confirmPurchase(item.id)
-                            : () => void lockItem(item.id);
-                          let label: string;
-                          if (confirmingId === item.id) label = "Paying…";
-                          else if (lockingId === item.id) label = "Reserving…";
-                          else if (countdownSeconds > 0)
-                            label = `Live in ${countdownSeconds}s`;
-                          else if (mineLocked)
-                            label = `Confirm purchase · ₹${item.price_inr}`;
-                          else if (someoneElseLocked) label = "Locked";
-                          else label = "Buy now";
-                          return (
-                            <button
-                              type="button"
-                              disabled={
-                                busy ||
-                                someoneElseLocked ||
-                                item._isExiting ||
-                                countdownSeconds > 0
-                              }
-                              onClick={onClick}
-                              className={[
-                                "mt-3 flex min-h-11 w-full items-center justify-center rounded-xl px-3 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-80",
-                                mineLocked
-                                  ? "bg-emerald-500 text-white hover:bg-emerald-400 disabled:bg-emerald-700"
-                                  : "bg-violet-600 text-white hover:bg-violet-500 disabled:bg-zinc-600",
-                              ].join(" ")}
-                            >
-                              {item._isExiting ? "Sold" : label}
-                            </button>
-                          );
-                        })()}
-                      </div>
-                    </article>
-                  ))}
+                  {renderedItems.map((item) => {
+                    const { label, onClick, disabled, mineLocked } = getItemCTAProps(item);
+                    return (
+                      <article
+                        key={item.id}
+                        className={[
+                          "flex w-[min(100%,17.5rem)] shrink-0 snap-start gap-3 rounded-3xl border border-white/[0.12] bg-white/[0.08] p-3 backdrop-blur-xl transition duration-700 sm:w-[18.5rem] lg:w-full",
+                          itemAnimClasses(item),
+                        ].join(" ")}
+                      >
+                        <div
+                          className="h-24 w-20 shrink-0 rounded-xl bg-cover bg-center"
+                          style={{
+                            backgroundImage: item.image_display_url
+                              ? `url(${item.image_display_url})`
+                              : undefined,
+                          }}
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium">{item.name}</p>
+                          <p className="mt-1 text-lg font-bold text-rose-400">
+                            ₹{item.price_inr}
+                            <span className="ml-2 text-xs font-normal text-white/45 line-through">
+                              ₹{Math.round(item.price_inr * 1.5)}
+                            </span>
+                          </p>
+                          <p className="text-xs text-white/70">
+                            {item.size_label || "One-off market find"}
+                          </p>
+                          <button
+                            type="button"
+                            disabled={disabled}
+                            onClick={onClick}
+                            className={[
+                              "mt-3 flex min-h-11 w-full items-center justify-center rounded-full px-3 text-xs font-bold shadow-lg shadow-white/10 transition-colors disabled:cursor-not-allowed disabled:opacity-70",
+                              mineLocked
+                                ? "bg-white text-emerald-600 hover:bg-white"
+                                : "bg-white text-zinc-900 hover:bg-white/90",
+                            ].join(" ")}
+                          >
+                            {label}
+                          </button>
+                        </div>
+                      </article>
+                    );
+                  })}
                 </div>
                 {buyMessage ? (
                   <p className="rounded-xl bg-amber-500/20 px-3 py-2 text-xs text-amber-100 ring-1 ring-amber-400/30">
@@ -870,41 +1144,24 @@ function LiveRoomShellInner({ slug }: { slug: string }) {
               <span>LIVE</span>
             </div>
           </div>
+
         </section>
 
+        {/* Desktop chat sidebar */}
         <aside className="relative hidden min-h-dvh w-[350px] shrink-0 flex-col border-l border-white/10 bg-black/45 p-4 backdrop-blur-xl lg:flex">
           <p className="mb-3 shrink-0 text-sm font-medium">Live chat</p>
           <LiveStreamChat streamId={stream?.id ?? null} />
         </aside>
+
       </main>
 
-      <button
-        type="button"
-        onClick={() => {
-          setChatOpen(true);
-          setUnread(0);
-        }}
-        className="fixed z-30 flex items-center gap-2 rounded-full bg-violet-600 px-4 py-3 text-sm font-semibold text-white shadow-2xl shadow-black/40 ring-1 ring-white/20 backdrop-blur lg:hidden"
-        style={{
-          bottom: "max(1.25rem, env(safe-area-inset-bottom, 0px))",
-          right: "max(1rem, env(safe-area-inset-right, 0px))",
-        }}
-        aria-label="Open chat"
-      >
-        <span aria-hidden>💬</span>
-        Chat
-        {unread > 0 ? (
-          <span className="ml-1 inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-bold">
-            {unread > 99 ? "99+" : unread}
-          </span>
-        ) : null}
-      </button>
-
+      {/* ── Purchase success overlay (shared) ─────────────────────────────── */}
       <PurchaseSuccessOverlay
         data={purchaseSuccess}
         onDismiss={() => setPurchaseSuccess(null)}
       />
 
+      {/* ── Purchase celebration confetti (shared) ────────────────────────── */}
       {purchaseCelebration ? (
         <div className="pointer-events-none fixed inset-0 z-[65] overflow-hidden">
           <div className="absolute inset-0 bg-black/20" />
@@ -936,31 +1193,7 @@ function LiveRoomShellInner({ slug }: { slug: string }) {
         </div>
       ) : null}
 
-      {chatOpen ? (
-        <div
-          className="fixed inset-0 z-40 flex flex-col justify-end bg-black/60 backdrop-blur-sm lg:hidden"
-          onClick={() => setChatOpen(false)}
-        >
-          <div
-            className="flex max-h-[85dvh] min-h-[60dvh] flex-col rounded-t-3xl border-t border-white/10 bg-zinc-950/95 p-4 pb-[calc(env(safe-area-inset-bottom,0)+1rem)] text-white shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="mb-3 flex items-center justify-between">
-              <p className="text-sm font-semibold">Live chat</p>
-              <button
-                type="button"
-                onClick={() => setChatOpen(false)}
-                className="rounded-full bg-white/10 px-3 py-1 text-xs font-medium hover:bg-white/15"
-              >
-                Close
-              </button>
-            </div>
-            <div className="flex min-h-0 flex-1 flex-col">
-              <LiveStreamChat streamId={stream?.id ?? null} />
-            </div>
-          </div>
-        </div>
-      ) : null}
+      {/* ── Global keyframe animations ─────────────────────────────────────── */}
       <style jsx global>{`
         @keyframes jiniConfettiFall {
           0% {
