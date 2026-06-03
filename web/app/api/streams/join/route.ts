@@ -37,10 +37,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Stream not found" }, { status: 404 });
   }
 
-  const { error } = await admin.from("stream_access").upsert({
-    stream_id: stream.id,
-    user_id: user.id,
-  });
+  const { error } = await admin.from("stream_access").upsert(
+    { stream_id: stream.id, user_id: user.id },
+    { onConflict: "user_id,stream_id" },
+  );
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

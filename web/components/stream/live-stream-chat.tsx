@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, useEffect, useId, useRef, useState } from "react";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 
 type ChatRow = {
@@ -51,6 +51,7 @@ function rowLabel(
 }
 
 export function LiveStreamChat({ streamId, variant = "sidebar" }: LiveStreamChatProps) {
+  const instanceId = useId();
   const [messages, setMessages] = useState<ChatRow[]>([]);
   const [draft, setDraft] = useState("");
   const [myUserId, setMyUserId] = useState<string | null>(null);
@@ -100,7 +101,7 @@ export function LiveStreamChat({ streamId, variant = "sidebar" }: LiveStreamChat
     queueMicrotask(() => void load());
 
     chatChannel = client
-      .channel(`stream-chat:${streamId}`)
+      .channel(`stream-chat:${streamId}:${instanceId}`)
       .on(
         "postgres_changes",
         {

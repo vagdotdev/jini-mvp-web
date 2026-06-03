@@ -403,9 +403,12 @@ function LiveRoomShellInner({ slug }: { slug: string }) {
       NonNullable<ReturnType<typeof createBrowserSupabaseClient>>["channel"]
     > | null = null;
     const demoKey = `jini-demo-items:${slug}`;
-    const savedDemoItems = JSON.parse(
-      localStorage.getItem(demoKey) || "[]",
-    ) as StreamItem[];
+    let savedDemoItems: StreamItem[] = [];
+    try {
+      savedDemoItems = JSON.parse(localStorage.getItem(demoKey) || "[]") as StreamItem[];
+    } catch {
+      // Safari private mode or storage restricted — skip demo items
+    }
     if (savedDemoItems.length) {
       queueMicrotask(() => {
         setItems(savedDemoItems);
@@ -427,7 +430,14 @@ function LiveRoomShellInner({ slug }: { slug: string }) {
           cache: "no-store",
           credentials: "include",
         });
-        if (!res.ok) return;
+        if (!res.ok) {
+          setStatus(
+            res.status === 404
+              ? "Stream not found. Check your link and try again."
+              : "Could not load stream. Check your internet and refresh.",
+          );
+          return;
+        }
         const data = (await res.json()) as StreamMeta;
         if (!active) return;
         setStream(data);
