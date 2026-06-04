@@ -7,7 +7,7 @@ type PageRevealProps = {
   children: ReactNode;
 };
 
-const EXCLUDED_PREFIXES = ["/admin", "/dev"] as const;
+const EXCLUDED_PREFIXES = ["/admin", "/dev", "/host"] as const;
 
 function shouldSkipAscend(pathname: string) {
   if (pathname === "/") return true;

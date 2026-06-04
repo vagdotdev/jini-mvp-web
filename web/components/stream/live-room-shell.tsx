@@ -843,7 +843,7 @@ function LiveRoomShellInner({ slug }: { slug: string }) {
                 <div className="flex items-center gap-2">
                   <div className="h-8 w-8 shrink-0 rounded-full bg-gradient-to-br from-amber-200 to-pink-400 ring-2 ring-white/60" />
                   <span className="text-sm font-semibold leading-none">Jini</span>
-                  <span className="rounded-[4px] bg-emerald-500 px-1.5 py-[3px] text-[10px] font-bold leading-none tracking-wide">
+                  <span className="rounded-[3px] bg-emerald-500 px-1.5 py-[3px] text-[10px] font-black leading-none tracking-widest shadow-[1.5px_1.5px_0_rgba(0,0,0,0.45)]">
                     LIVE
                   </span>
                   {stream && (
@@ -972,7 +972,7 @@ function LiveRoomShellInner({ slug }: { slug: string }) {
                   ].join(" ")}
                 >
                   {/* Product card + buy CTA (matches desktop overlay item cards) */}
-                  <article className="flex gap-3 rounded-3xl border border-white/[0.12] bg-white/[0.08] p-3 backdrop-blur-xl">
+                  <article className="flex gap-3 rounded-2xl border border-white/[0.12] bg-white/[0.08] p-3 shadow-[2px_2px_0_rgba(0,0,0,0.3)] backdrop-blur-xl">
                     <div
                       className="h-20 w-[4.5rem] shrink-0 rounded-xl bg-zinc-800/40 bg-cover bg-center"
                       style={{
@@ -999,7 +999,7 @@ function LiveRoomShellInner({ slug }: { slug: string }) {
                         disabled={disabled}
                         onClick={onClick}
                         className={[
-                          "mt-3 flex min-h-11 w-full items-center justify-center rounded-full px-3 text-center text-xs font-bold shadow-lg shadow-white/10 transition-colors disabled:cursor-not-allowed disabled:opacity-70",
+                          "mt-3 flex min-h-11 w-full items-center justify-center rounded-xl px-3 text-center text-xs font-bold shadow-[2px_2px_0_rgba(0,0,0,0.45)] transition-[box-shadow,background-color] hover:shadow-[1px_1px_0_rgba(0,0,0,0.3)] active:shadow-none disabled:cursor-not-allowed disabled:opacity-70",
                           featuredItem._isExiting
                             ? "bg-white/50 text-zinc-500"
                             : mineLocked
@@ -1029,7 +1029,7 @@ function LiveRoomShellInner({ slug }: { slug: string }) {
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-xl font-semibold tracking-tight sm:text-2xl">Jini</span>
-                  <span className="rounded-md bg-violet-600 px-2 py-1 text-xs font-semibold">
+                  <span className="rounded bg-violet-600 px-2 py-1 text-[10px] font-black uppercase tracking-widest shadow-[2px_2px_0_rgba(0,0,0,0.55)]">
                     LIVE
                   </span>
                   {stream && (
@@ -1043,7 +1043,6 @@ function LiveRoomShellInner({ slug }: { slug: string }) {
                   <div className="h-10 w-10 shrink-0 rounded-full bg-gradient-to-br from-amber-200 to-pink-400 ring-2 ring-white/60 sm:h-11 sm:w-11" />
                   <div className="min-w-0">
                     <p className="truncate font-medium">{stream?.title || "Live drop"}</p>
-                    <p className="text-xs text-white/80 sm:text-sm">Sarojini-style sale on Jini</p>
                   </div>
                 </div>
               </div>
@@ -1081,7 +1080,7 @@ function LiveRoomShellInner({ slug }: { slug: string }) {
             <div className="mt-4 min-h-0 flex-1 lg:mt-0 lg:flex lg:max-h-none lg:flex-col lg:justify-center">
               <div className="-mx-1 flex flex-col gap-3 lg:mx-0 lg:max-w-sm lg:space-y-3">
                 {visibleItems.length > 0 && stream && (
-                  <div className="inline-flex w-fit items-center gap-1.5 rounded-full bg-black/35 px-3 py-1 text-[11px] font-medium text-white/85 ring-1 ring-white/15 backdrop-blur">
+                  <div className="inline-flex w-fit items-center gap-1.5 rounded bg-black/35 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white/85 ring-1 ring-white/15 shadow-[1.5px_1.5px_0_rgba(139,92,246,0.25)] backdrop-blur">
                     <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-300" />
                     People are shopping
                   </div>
@@ -1093,7 +1092,7 @@ function LiveRoomShellInner({ slug }: { slug: string }) {
                       <article
                         key={item.id}
                         className={[
-                          "flex w-[min(100%,17.5rem)] shrink-0 snap-start gap-3 rounded-3xl border border-white/[0.12] bg-white/[0.08] p-3 backdrop-blur-xl transition duration-700 sm:w-[18.5rem] lg:w-full",
+                          "flex w-[min(100%,17.5rem)] shrink-0 snap-start gap-3 rounded-2xl border border-white/[0.12] bg-white/[0.08] p-3 shadow-[2px_2px_0_rgba(0,0,0,0.3)] backdrop-blur-xl transition duration-700 sm:w-[18.5rem] lg:w-full",
                           itemAnimClasses(item),
                         ].join(" ")}
                       >
@@ -1121,7 +1120,7 @@ function LiveRoomShellInner({ slug }: { slug: string }) {
                             disabled={disabled}
                             onClick={onClick}
                             className={[
-                              "mt-3 flex min-h-11 w-full items-center justify-center rounded-full px-3 text-xs font-bold shadow-lg shadow-white/10 transition-colors disabled:cursor-not-allowed disabled:opacity-70",
+                              "mt-3 flex min-h-11 w-full items-center justify-center rounded-xl px-3 text-xs font-bold shadow-[2px_2px_0_rgba(0,0,0,0.45)] transition-[box-shadow,background-color] hover:shadow-[1px_1px_0_rgba(0,0,0,0.3)] active:shadow-none disabled:cursor-not-allowed disabled:opacity-70",
                               mineLocked
                                 ? "bg-white text-emerald-600 hover:bg-white"
                                 : "bg-white text-zinc-900 hover:bg-white/90",

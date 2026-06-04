@@ -10,7 +10,6 @@ import {
   useLocalParticipant,
   useRoomContext,
   useTracks,
-  VideoTrack,
 } from "@livekit/components-react";
 import { LiveKitSetupNotice } from "@/components/stream/livekit-setup-notice";
 import { HostChatTicker } from "@/components/stream/host-chat-ticker";
@@ -21,6 +20,7 @@ import {
 import { LocalAudioTrack, Track } from "livekit-client";
 import type { TrackReference } from "@livekit/components-core";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 type HostControlProps = {
   token: string;
@@ -97,7 +97,7 @@ export function HostControl({ token }: HostControlProps) {
       <section className="rounded-3xl border border-zinc-200 bg-white p-5 shadow-sm">
         <div className="aspect-video rounded-2xl bg-gradient-to-br from-zinc-950 via-zinc-800 to-violet-950 p-4 text-white">
           <div className="flex items-center justify-between">
-            <span className="rounded-md bg-violet-600 px-2 py-1 text-xs font-semibold">
+            <span className="rounded bg-violet-600 px-2 py-1 text-[10px] font-black uppercase tracking-widest shadow-[2px_2px_0_rgba(0,0,0,0.55)]">
               HOST
             </span>
             <span className="text-xs text-white/60">camera preview</span>
@@ -110,7 +110,7 @@ export function HostControl({ token }: HostControlProps) {
           type="button"
           onClick={() => void fetchToken()}
           disabled={loading}
-          className="mt-4 w-full rounded-xl bg-zinc-950 px-5 py-3 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-60"
+          className="mt-4 w-full rounded-lg bg-zinc-950 px-5 py-3 text-sm font-bold text-white shadow-[3px_3px_0_rgba(0,0,0,0.75)] transition-[box-shadow,background-color] hover:bg-zinc-800 hover:shadow-[2px_2px_0_rgba(0,0,0,0.6)] active:shadow-none disabled:opacity-60"
         >
           {loading ? "Connecting..." : "Go live (start camera + mic)"}
         </button>
@@ -125,23 +125,23 @@ export function HostControl({ token }: HostControlProps) {
   }
 
   return (
-    <div className="host-live-stage fixed inset-0 z-50 bg-black text-white">
-      <LiveKitRoom
-        serverUrl={conn.url}
-        token={conn.token}
-        connect
-        video
-        audio
-        data-lk-theme="default"
-        className="host-live-room"
-        style={{ height: "100%", width: "100%", position: "absolute", inset: 0 }}
-        onDisconnected={() => setConn(null)}
-        onError={(err) => setError(err.message)}
-      >
-        <HostStage />
+    <HostLiveViewport>
+      <div className="host-live-stage">
+        <LiveKitRoom
+          serverUrl={conn.url}
+          token={conn.token}
+          connect
+          video
+          audio
+          data-lk-theme="default"
+          className="host-live-room"
+          onDisconnected={() => setConn(null)}
+          onError={(err) => setError(err.message)}
+        >
+          <HostStage />
 
         <div
-          className="pointer-events-none absolute left-4 top-4 z-20 inline-flex items-center gap-2 rounded-full bg-black/60 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-white backdrop-blur ring-1 ring-white/10"
+          className="pointer-events-none absolute left-4 top-4 z-20 inline-flex items-center gap-2 rounded bg-black/65 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.22em] text-white backdrop-blur shadow-[2px_2px_0_rgba(0,0,0,0.5)] ring-1 ring-violet-400/20"
           style={{ top: "calc(env(safe-area-inset-top, 0px) + 1rem)" }}
         >
           <span className="h-2 w-2 animate-pulse rounded-full bg-rose-500" />
@@ -205,8 +205,8 @@ export function HostControl({ token }: HostControlProps) {
             className={[
               "rounded-full px-3 py-2 text-xs font-semibold shadow-lg backdrop-blur ring-1 transition",
               activePanel === "music"
-                ? "bg-violet-500/90 text-white ring-violet-300/50"
-                : "bg-black/65 text-white ring-white/20 hover:bg-black/75",
+                ? "bg-violet-500/90 text-white ring-violet-300/50 shadow-[2px_2px_0_rgba(0,0,0,0.55)]"
+                : "bg-black/65 text-white ring-white/20 hover:bg-black/75 shadow-[2px_2px_0_rgba(0,0,0,0.35)]",
             ].join(" ")}
           >
             Music
@@ -217,8 +217,8 @@ export function HostControl({ token }: HostControlProps) {
             className={[
               "rounded-full px-3 py-2 text-xs font-semibold shadow-lg backdrop-blur ring-1 transition",
               activePanel === "chat"
-                ? "bg-sky-500/85 text-white ring-sky-300/50"
-                : "bg-black/65 text-white ring-white/20 hover:bg-black/75",
+                ? "bg-sky-500/85 text-white ring-sky-300/50 shadow-[2px_2px_0_rgba(0,0,0,0.55)]"
+                : "bg-black/65 text-white ring-white/20 hover:bg-black/75 shadow-[2px_2px_0_rgba(0,0,0,0.35)]",
             ].join(" ")}
           >
             Chat
@@ -249,9 +249,45 @@ export function HostControl({ token }: HostControlProps) {
           </div>
         ) : null}
 
-        <RoomAudioRenderer />
-      </LiveKitRoom>
-    </div>
+          <RoomAudioRenderer />
+        </LiveKitRoom>
+      </div>
+    </HostLiveViewport>
+  );
+}
+
+/** Portal to document.body so fixed/full-screen layout is not clipped by page wrappers (e.g. jini-ascend). */
+function HostLiveViewport({ children }: { children: React.ReactNode }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+  if (!mounted) return null;
+  return createPortal(children, document.body);
+}
+
+function HostCameraFill({ trackRef }: { trackRef: TrackReference }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const el = videoRef.current;
+    const publication = trackRef.publication;
+    const mediaTrack = publication?.track;
+    if (!el || !mediaTrack) return;
+    mediaTrack.attach(el);
+    return () => {
+      mediaTrack.detach(el);
+    };
+  }, [trackRef]);
+
+  return (
+    <video
+      ref={videoRef}
+      className="host-live-video"
+      autoPlay
+      playsInline
+      muted
+    />
   );
 }
 
@@ -274,16 +310,7 @@ function HostStage() {
 
   return (
     <div className="host-live-video-layer">
-      <VideoTrack
-        trackRef={track}
-        className="host-live-video"
-        style={{
-          width: "100%",
-          height: "100%",
-          objectFit: "cover",
-          objectPosition: "center",
-        }}
-      />
+      <HostCameraFill trackRef={track} />
     </div>
   );
 }
@@ -654,14 +681,14 @@ function HostMusicControls({ className }: { className?: string }) {
         Music
       </p>
       <div className="mt-2.5 flex items-center gap-2">
-        <p className="min-w-0 flex-1 truncate rounded-xl border border-white/20 bg-black/30 px-3 py-2 text-xs font-semibold text-white/95">
+        <p className="min-w-0 flex-1 truncate rounded-lg border border-white/20 bg-black/30 px-3 py-2 text-xs font-semibold text-white/95">
           {currentTrack?.label || "No song"}
         </p>
         <button
           type="button"
           disabled={busy !== null || tracks.length <= 1}
           onClick={handleNextSong}
-          className="rounded-xl border border-white/20 bg-white/15 px-3 py-2 text-xs font-semibold text-white hover:bg-white/25 disabled:opacity-45"
+          className="rounded-lg border border-white/20 bg-white/15 px-3 py-2 text-xs font-semibold text-white shadow-[2px_2px_0_rgba(0,0,0,0.45)] transition-[box-shadow] hover:bg-white/25 hover:shadow-[1px_1px_0_rgba(0,0,0,0.3)] disabled:opacity-45"
         >
           Switch song
         </button>
@@ -671,7 +698,7 @@ function HostMusicControls({ className }: { className?: string }) {
           type="button"
           disabled={busy === "start"}
           onClick={() => void handleStart()}
-          className="rounded-xl bg-violet-500/90 px-3 py-2 text-xs font-semibold text-white shadow-lg shadow-violet-900/35 hover:bg-violet-400 disabled:opacity-50"
+          className="rounded-lg bg-violet-500/90 px-3 py-2 text-xs font-bold text-white shadow-[2px_2px_0_rgba(0,0,0,0.5)] transition-[box-shadow] hover:bg-violet-400 hover:shadow-[1px_1px_0_rgba(0,0,0,0.35)] active:shadow-none disabled:opacity-50"
         >
           {busy === "start" ? "Starting…" : "Start song"}
         </button>
@@ -679,7 +706,7 @@ function HostMusicControls({ className }: { className?: string }) {
           type="button"
           disabled={busy === "transition"}
           onClick={() => void handleTransition()}
-          className="rounded-xl bg-sky-500/85 px-3 py-2 text-xs font-semibold text-white shadow-lg shadow-sky-900/35 hover:bg-sky-400 disabled:opacity-50"
+          className="rounded-lg bg-sky-500/85 px-3 py-2 text-xs font-bold text-white shadow-[2px_2px_0_rgba(0,0,0,0.5)] transition-[box-shadow] hover:bg-sky-400 hover:shadow-[1px_1px_0_rgba(0,0,0,0.35)] active:shadow-none disabled:opacity-50"
         >
           {busy === "transition" ? "Shifting…" : "Transition"}
         </button>
@@ -687,7 +714,7 @@ function HostMusicControls({ className }: { className?: string }) {
           type="button"
           disabled={busy === "stop"}
           onClick={() => void handleStop()}
-          className="rounded-xl bg-rose-500/90 px-3 py-2 text-xs font-semibold text-white shadow-lg shadow-rose-900/35 hover:bg-rose-400 disabled:opacity-45"
+          className="rounded-lg bg-rose-500/90 px-3 py-2 text-xs font-bold text-white shadow-[2px_2px_0_rgba(0,0,0,0.5)] transition-[box-shadow] hover:bg-rose-400 hover:shadow-[1px_1px_0_rgba(0,0,0,0.35)] active:shadow-none disabled:opacity-45"
         >
           {busy === "stop" ? "Stopping…" : "Stop music"}
         </button>

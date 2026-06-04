@@ -183,92 +183,57 @@ body.host-live {
   height: 100% !important;
 }
 
-/* Host viewfinder: full-screen camera layer with UI overlays on top. */
-.host-live .host-live-stage,
-.host-live .host-live-room {
+/*
+ * Host live viewfinder (portaled to document.body).
+ * Self-contained selectors — do not rely on html.host-live as an ancestor.
+ */
+.host-live-stage {
   position: fixed;
   inset: 0;
+  z-index: 9999;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  background: #000;
+  color: #fff;
+}
+
+.host-live-room {
+  position: relative;
   width: 100%;
   height: 100%;
   min-height: 100%;
   overflow: hidden;
-  background: #000;
 }
 
-.host-live .host-live-video-layer {
-  position: fixed;
+.host-live-video-layer {
+  position: absolute;
   inset: 0;
   z-index: 0;
-  display: flex;
-  flex: 1;
-  width: 100%;
-  height: 100%;
-  min-height: 100%;
   overflow: hidden;
   background: #000;
 }
 
-.host-live .host-live-video,
-.host-live .host-live-video-layer video,
-.host-live .host-live-video-layer .lk-participant-media-video {
-  flex: 1;
-  min-height: 0;
-  width: 100% !important;
-  height: 100% !important;
-  min-height: 100% !important;
-  max-height: none !important;
-  object-fit: cover !important;
-  object-position: center !important;
-  background: #000 !important;
-  border-radius: 0 !important;
+.host-live-stage .host-live-video,
+.host-live-stage .host-live-video-layer video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  object-fit: cover;
+  object-position: center;
+  background: #000;
+  transform: scaleX(-1); /* mirror front-camera host preview */
 }
 
-/* LiveKit defaults portrait camera tracks to object-fit: contain (letterboxing). */
-.host-live .host-live-video[data-lk-orientation="portrait"],
-.host-live .host-live-video-layer .lk-participant-media-video[data-lk-orientation="portrait"],
-.host-live .lk-participant-media-video[data-lk-orientation="portrait"] {
+/* LiveKit portrait tracks default to object-fit: contain (letterboxing). */
+.host-live-stage .lk-participant-media-video[data-lk-orientation="portrait"],
+.host-live-stage video[data-lk-orientation="portrait"] {
   object-fit: cover !important;
-  background-color: #000 !important;
-}
-
-/* Fallback if ParticipantTile is used elsewhere under host-live. */
-.host-live .lk-room-container,
-.host-live .lk-grid-layout,
-.host-live .lk-focus-layout,
-.host-live .lk-focus-layout-wrapper,
-.host-live .lk-participant-tile {
-  height: 100% !important;
-  width: 100% !important;
-  max-height: none !important;
-  max-width: none !important;
-  flex: 1;
-  min-height: 0;
-  aspect-ratio: auto !important;
-  border-radius: 0 !important;
   background: #000 !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  gap: 0 !important;
-}
-.host-live .lk-participant-tile {
-  display: flex !important;
-  flex-direction: column !important;
-  border: none !important;
-  outline: none !important;
-}
-.host-live .lk-participant-tile > video,
-.host-live .lk-participant-tile .lk-participant-media-video,
-.host-live video {
-  flex: 1;
-  min-height: 0;
-  object-fit: cover !important;
-  width: 100% !important;
-  height: 100% !important;
-  border-radius: 0 !important;
-}
-.host-live .lk-participant-tile .lk-participant-metadata,
-.host-live .lk-participant-tile .lk-focus-toggle-button {
-  display: none !important;
 }
 
 /* Home marquee: on touch / no-hover, lighten default veil so clips read without hover */
