@@ -967,14 +967,13 @@ function LiveRoomShellInner({ slug }: { slug: string }) {
               return (
                 <div
                   className={[
-                    "relative z-20 mx-3 mb-[max(0.75rem,env(safe-area-inset-bottom))] transition-all duration-500",
+                    "relative z-20 ml-3 mr-auto mb-[max(0.75rem,env(safe-area-inset-bottom))] w-[min(72%,17.5rem)] transition-all duration-500",
                     itemAnimClasses(featuredItem),
                   ].join(" ")}
                 >
-                  {/* Product card + buy CTA (matches desktop overlay item cards) */}
                   <article className="flex gap-3 rounded-2xl border border-white/[0.12] bg-white/[0.08] p-3 shadow-[2px_2px_0_rgba(0,0,0,0.3)] backdrop-blur-xl">
                     <div
-                      className="h-20 w-[4.5rem] shrink-0 rounded-xl bg-zinc-800/40 bg-cover bg-center"
+                      className="h-14 w-14 shrink-0 rounded-xl bg-zinc-800/40 bg-cover bg-center"
                       style={{
                         backgroundImage: featuredItem.image_display_url
                           ? `url(${featuredItem.image_display_url})`
@@ -982,7 +981,7 @@ function LiveRoomShellInner({ slug }: { slug: string }) {
                       }}
                     />
                     <div className="min-w-0 flex-1">
-                      <p className="line-clamp-2 text-sm font-medium leading-snug text-white">
+                      <p className="line-clamp-1 text-sm font-medium leading-snug text-white">
                         {featuredItem.name}
                       </p>
                       <p className="mt-1 text-lg font-bold text-rose-400">
@@ -999,12 +998,12 @@ function LiveRoomShellInner({ slug }: { slug: string }) {
                         disabled={disabled}
                         onClick={onClick}
                         className={[
-                          "mt-3 flex min-h-11 w-full items-center justify-center rounded-xl px-3 text-center text-xs font-bold shadow-[2px_2px_0_rgba(0,0,0,0.45)] transition-[box-shadow,background-color] hover:shadow-[1px_1px_0_rgba(0,0,0,0.3)] active:shadow-none disabled:cursor-not-allowed disabled:opacity-70",
+                          "mt-2 flex min-h-9 w-full items-center justify-center rounded-xl px-3 text-center text-xs font-bold shadow-[2px_2px_0_rgba(0,0,0,0.45)] transition-[box-shadow,background-color] hover:shadow-[1px_1px_0_rgba(0,0,0,0.3)] active:shadow-none disabled:cursor-not-allowed disabled:opacity-70",
                           featuredItem._isExiting
-                            ? "bg-white/50 text-zinc-500"
+                            ? "bg-white/30 text-white/60"
                             : mineLocked
-                              ? "bg-white text-emerald-600"
-                              : "bg-white text-zinc-900",
+                              ? "bg-emerald-500 text-white"
+                              : "bg-rose-500 text-white",
                         ].join(" ")}
                       >
                         {label}
