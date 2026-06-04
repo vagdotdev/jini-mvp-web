@@ -4,12 +4,13 @@ import "@livekit/components-styles";
 
 import {
   ControlBar,
+  isTrackReference,
   LiveKitRoom,
-  ParticipantTile,
   RoomAudioRenderer,
   useLocalParticipant,
   useRoomContext,
   useTracks,
+  VideoTrack,
 } from "@livekit/components-react";
 import { LiveKitSetupNotice } from "@/components/stream/livekit-setup-notice";
 import { HostChatTicker } from "@/components/stream/host-chat-ticker";
@@ -18,6 +19,7 @@ import {
   type LiveKitTokenErrorBody,
 } from "@/lib/livekit/setup-messages";
 import { LocalAudioTrack, Track } from "livekit-client";
+import type { TrackReference } from "@livekit/components-core";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 type HostControlProps = {
@@ -123,7 +125,7 @@ export function HostControl({ token }: HostControlProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black text-white">
+    <div className="host-live-stage fixed inset-0 z-50 bg-black text-white">
       <LiveKitRoom
         serverUrl={conn.url}
         token={conn.token}
@@ -131,13 +133,12 @@ export function HostControl({ token }: HostControlProps) {
         video
         audio
         data-lk-theme="default"
+        className="host-live-room"
         style={{ height: "100%", width: "100%", position: "absolute", inset: 0 }}
         onDisconnected={() => setConn(null)}
         onError={(err) => setError(err.message)}
       >
-        <div style={{ position: "absolute", inset: 0 }}>
-          <HostStage />
-        </div>
+        <HostStage />
 
         <div
           className="pointer-events-none absolute left-4 top-4 z-20 inline-flex items-center gap-2 rounded-full bg-black/60 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-white backdrop-blur ring-1 ring-white/10"
@@ -260,7 +261,9 @@ function HostStage() {
     { onlySubscribed: false },
   ).filter((track) => track.participant.isLocal);
 
-  const track = tracks[0];
+  const track = tracks.find(
+    (candidate): candidate is TrackReference => isTrackReference(candidate),
+  );
   if (!track) {
     return (
       <div className="flex h-full w-full items-center justify-center bg-black text-sm text-white/70">
@@ -270,11 +273,16 @@ function HostStage() {
   }
 
   return (
-    <div className="h-full w-full bg-black">
-      <ParticipantTile
+    <div className="host-live-video-layer">
+      <VideoTrack
         trackRef={track}
-        disableSpeakingIndicator
-        style={{ height: "100%", width: "100%" }}
+        className="host-live-video"
+        style={{
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          objectPosition: "center",
+        }}
       />
     </div>
   );
