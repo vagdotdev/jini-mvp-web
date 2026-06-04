@@ -4,7 +4,6 @@ import "@livekit/components-styles";
 
 import {
   ControlBar,
-  GridLayout,
   LiveKitRoom,
   ParticipantTile,
   RoomAudioRenderer,
@@ -148,6 +147,21 @@ export function HostControl({ token }: HostControlProps) {
           Live
         </div>
 
+        {activePanel !== "chat" ? (
+          <div
+            className="pointer-events-none absolute right-3 z-20 hidden flex-col sm:flex md:right-4"
+            style={{
+              top: "calc(env(safe-area-inset-top, 0px) + 3.5rem)",
+              bottom: "calc(env(safe-area-inset-bottom, 0px) + 8.5rem)",
+              width: "min(20rem, 28vw)",
+            }}
+          >
+            <div className="pointer-events-auto flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] opacity-70 shadow-xl shadow-black/30 backdrop-blur-md transition-opacity duration-200 hover:opacity-100 focus-within:opacity-100">
+              <HostChatTicker hostToken={token} variant="ambient" slug={conn.slug} />
+            </div>
+          </div>
+        ) : null}
+
         {activePanel ? (
           <div
             className="absolute inset-0 z-30 bg-black/30"
@@ -246,10 +260,23 @@ function HostStage() {
     { onlySubscribed: false },
   ).filter((track) => track.participant.isLocal);
 
+  const track = tracks[0];
+  if (!track) {
+    return (
+      <div className="flex h-full w-full items-center justify-center bg-black text-sm text-white/70">
+        Waiting for camera…
+      </div>
+    );
+  }
+
   return (
-    <GridLayout tracks={tracks} style={{ height: "100%", width: "100%" }}>
-      <ParticipantTile />
-    </GridLayout>
+    <div className="h-full w-full bg-black">
+      <ParticipantTile
+        trackRef={track}
+        disableSpeakingIndicator
+        style={{ height: "100%", width: "100%" }}
+      />
+    </div>
   );
 }
 

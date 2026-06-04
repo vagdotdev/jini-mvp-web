@@ -29,7 +29,7 @@ type HostChatResponse = {
   error?: string;
 };
 
-type Variant = "portrait" | "landscape" | "panel";
+type Variant = "portrait" | "landscape" | "panel" | "ambient";
 
 type HostChatTickerProps = {
   hostToken: string;
@@ -239,10 +239,13 @@ export function HostChatTicker({ hostToken, variant, slug }: HostChatTickerProps
   }
 
   const isPanel = variant === "panel";
-  const visible = isPanel ? messages.slice(-MAX_HISTORY) : messages.slice(-MAX_VISIBLE);
+  const isAmbient = variant === "ambient";
+  const visible = isPanel || isAmbient
+    ? messages.slice(-MAX_HISTORY)
+    : messages.slice(-MAX_VISIBLE);
   const isPortrait = variant === "portrait";
 
-  const containerClass = isPanel
+  const containerClass = isPanel || isAmbient
     ? "flex h-full min-h-0 flex-col"
     : isPortrait
       ? "pointer-events-none absolute inset-x-0 bottom-3 z-20 px-3 sm:px-5"
@@ -250,14 +253,16 @@ export function HostChatTicker({ hostToken, variant, slug }: HostChatTickerProps
 
   const surfaceClass = isPanel
     ? "flex h-full min-h-0 flex-col bg-zinc-950 px-4 py-4"
-    : isPortrait
-      ? "pointer-events-auto mx-auto max-w-md rounded-2xl bg-gradient-to-t from-black/80 via-black/55 to-black/15 px-3 pb-2 pt-3 backdrop-blur-md"
-      : "pointer-events-auto mt-auto flex max-h-full flex-col rounded-2xl bg-black/55 p-3 backdrop-blur-md ring-1 ring-white/10";
+    : isAmbient
+      ? "flex h-full min-h-0 flex-col bg-transparent px-3 py-2.5"
+      : isPortrait
+        ? "pointer-events-auto mx-auto max-w-md rounded-2xl bg-gradient-to-t from-black/80 via-black/55 to-black/15 px-3 pb-2 pt-3 backdrop-blur-md"
+        : "pointer-events-auto mt-auto flex max-h-full flex-col rounded-2xl bg-black/55 p-3 backdrop-blur-md ring-1 ring-white/10";
 
   return (
     <div className={containerClass}>
       <div className={surfaceClass}>
-        {!isPortrait ? (
+        {!isPortrait && !isAmbient ? (
           <div
             className={
               isPanel
@@ -278,19 +283,27 @@ export function HostChatTicker({ hostToken, variant, slug }: HostChatTickerProps
             </div>
           </div>
         ) : null}
+        {isAmbient ? (
+          <div className="mb-1.5 flex items-center justify-between text-[10px] uppercase tracking-[0.22em] text-white/45">
+            <span>Chat</span>
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400/80" aria-hidden />
+          </div>
+        ) : null}
         <div
           ref={listRef}
           className={
             isPanel
               ? "min-h-0 flex-1 space-y-2 overflow-y-auto pr-1 text-[13px] leading-snug text-white"
-              : isPortrait
-              ? "max-h-[26vh] space-y-1.5 overflow-hidden text-[13px] leading-snug text-white"
-              : "min-h-0 flex-1 space-y-2 overflow-y-auto pr-1 text-[13px] leading-snug text-white"
+              : isAmbient
+                ? "min-h-0 flex-1 space-y-1 overflow-y-auto pr-1 text-[12px] leading-snug text-white/90"
+                : isPortrait
+                  ? "max-h-[26vh] space-y-1.5 overflow-hidden text-[13px] leading-snug text-white"
+                  : "min-h-0 flex-1 space-y-2 overflow-y-auto pr-1 text-[13px] leading-snug text-white"
           }
         >
           {visible.length === 0 ? (
-            <p className="text-xs text-white/55">
-              No messages yet. Viewers will appear here.
+            <p className={isAmbient ? "text-[11px] text-white/45" : "text-xs text-white/55"}>
+              {isAmbient ? "Waiting for viewers…" : "No messages yet. Viewers will appear here."}
             </p>
           ) : (
             visible.map((row) => {
@@ -301,7 +314,9 @@ export function HostChatTicker({ hostToken, variant, slug }: HostChatTickerProps
                   className={
                     isPanel
                       ? "flex items-start gap-2 rounded-xl bg-white/[0.04] px-2.5 py-2"
-                      : "flex items-start gap-2 rounded-md bg-black/20 px-1.5 py-1"
+                      : isAmbient
+                        ? "flex items-start gap-1.5 py-0.5"
+                        : "flex items-start gap-2 rounded-md bg-black/20 px-1.5 py-1"
                   }
                 >
                   <span
@@ -314,20 +329,22 @@ export function HostChatTicker({ hostToken, variant, slug }: HostChatTickerProps
                     </span>
                     <span className="text-white/95">{row.message}</span>
                   </p>
-                  <span className="shrink-0 text-[10px] text-white/40">
-                    {formatTime(row.created_at)}
-                  </span>
+                  {!isAmbient ? (
+                    <span className="shrink-0 text-[10px] text-white/40">
+                      {formatTime(row.created_at)}
+                    </span>
+                  ) : null}
                 </div>
               );
             })
           )}
         </div>
 
-        {error ? (
+        {error && !isAmbient ? (
           <p className="mt-2 text-[11px] text-amber-200/90">{error}</p>
         ) : null}
 
-        {isPanel || replyOpen ? (
+        {isAmbient ? null : isPanel || replyOpen ? (
           <form
             onSubmit={(e) => void handleSend(e)}
             className="mt-2 flex items-end gap-2"

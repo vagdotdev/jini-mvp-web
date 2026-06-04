@@ -126,12 +126,52 @@ body.host-live {
 /* LiveKit grid fills the host video column */
 .lk-room-container .lk-grid-layout {
   height: 100% !important;
+  width: 100% !important;
 }
 .lk-room-container .lk-participant-tile {
   height: 100% !important;
+  width: 100% !important;
+  aspect-ratio: auto !important;
 }
 .lk-room-container .lk-participant-tile video {
   object-fit: cover !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Host viewfinder: kill LiveKit's letterboxing and tile chrome so video fills the entire screen. */
+.host-live .lk-room-container,
+.host-live .lk-grid-layout,
+.host-live [data-lk-orientation],
+.host-live .lk-focus-layout,
+.host-live .lk-focus-layout-wrapper,
+.host-live .lk-participant-tile {
+  height: 100% !important;
+  width: 100% !important;
+  max-height: none !important;
+  max-width: none !important;
+  aspect-ratio: auto !important;
+  border-radius: 0 !important;
+  background: #000 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+.host-live .lk-participant-tile {
+  border: none !important;
+  outline: none !important;
+}
+.host-live .lk-participant-tile > video,
+.host-live .lk-participant-tile .lk-participant-media-video,
+.host-live video {
+  object-fit: cover !important;
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 0 !important;
+}
+/* Hide LiveKit's per-tile overlays (mic/name badges) on the host view — we render our own. */
+.host-live .lk-participant-tile .lk-participant-metadata,
+.host-live .lk-participant-tile .lk-focus-toggle-button {
+  display: none !important;
 }
 
 /* Home marquee: on touch / no-hover, lighten default veil so clips read without hover */
