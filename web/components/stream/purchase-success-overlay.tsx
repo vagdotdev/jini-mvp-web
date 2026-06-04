@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect } from "react";
+import {
+  NEO_BRUT,
+  NeoBrutConfetti,
+} from "@/components/stream/neo-brut-purchase-ui";
 
 export type PurchaseSuccess = {
   itemName: string;
@@ -24,7 +28,7 @@ export function PurchaseSuccessOverlay({ data, onDismiss }: Props) {
         // ignore
       }
     }
-    const t = window.setTimeout(onDismiss, 1800);
+    const t = window.setTimeout(onDismiss, 2200);
     return () => window.clearTimeout(t);
   }, [data, onDismiss]);
 
@@ -32,61 +36,97 @@ export function PurchaseSuccessOverlay({ data, onDismiss }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/45 px-6 backdrop-blur-[2px] animate-[jiniFadeIn_140ms_ease-out_forwards]"
+      className="jini-neo-animate fixed inset-0 z-[60] flex items-center justify-center px-5 animate-[jiniNeoFadeIn_120ms_ease-out_forwards]"
       onClick={onDismiss}
       role="status"
       aria-live="polite"
     >
-      <div
-        className="relative flex w-full max-w-xs items-center gap-3 rounded-2xl bg-white/95 p-3 text-zinc-900 shadow-2xl ring-1 ring-black/5 animate-[jiniPop_220ms_cubic-bezier(.2,.9,.3,1.2)_forwards]"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-zinc-100">
-          {data.imageUrl ? (
-            <div
-              className="absolute inset-0 bg-cover bg-center"
-              style={{ backgroundImage: `url(${data.imageUrl})` }}
-            />
-          ) : null}
-          <div className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 text-white shadow ring-2 ring-white">
-            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
-              <path
-                d="M5 12.5l4.2 4.2L19 7"
-                style={{
-                  strokeDasharray: 24,
-                  strokeDashoffset: 24,
-                  animation: "jiniDraw 320ms ease-out 80ms forwards",
-                }}
-              />
-            </svg>
-          </div>
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-600">
-            Yours!
-          </p>
-          <p className="truncate text-sm font-semibold text-zinc-900">
-            {data.itemName}
-          </p>
-          <p className="text-[11px] text-zinc-500">
-            ₹{data.paidInr.toLocaleString("en-IN")} paid · wallet ₹{data.balanceInr.toLocaleString("en-IN")}
-          </p>
-        </div>
+      <div className="pointer-events-none absolute inset-0 bg-black/55" aria-hidden />
+
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <NeoBrutConfetti idPrefix="purchase-success" count={20} />
       </div>
 
-      <style jsx global>{`
-        @keyframes jiniFadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-        @keyframes jiniPop {
-          0% { opacity: 0; transform: translateY(6px) scale(.94); }
-          100% { opacity: 1; transform: translateY(0) scale(1); }
-        }
-        @keyframes jiniDraw {
-          to { stroke-dashoffset: 0; }
-        }
-      `}</style>
+      <div
+        className="relative w-full max-w-[22rem]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Hard offset shadow (reference: solid black block, not blur) */}
+        <div
+          className="absolute inset-0 translate-x-2.5 translate-y-2.5 bg-black"
+          aria-hidden
+        />
+
+        <div
+          className="jini-neo-animate relative border-[3px] border-black bg-[#9AE6B4] p-4 animate-[jiniNeoPop_260ms_cubic-bezier(.2,.9,.3,1.08)_forwards]"
+          style={{ background: NEO_BRUT.mint }}
+        >
+          <div
+            className="mb-3 inline-block border-2 border-black px-3 py-1"
+            style={{ background: NEO_BRUT.yellow }}
+          >
+            <span className="text-xs font-black uppercase tracking-[0.14em] text-black">
+              Yours!
+            </span>
+          </div>
+
+          <div className="flex gap-3.5">
+            <div className="relative shrink-0">
+              <div className="h-[4.5rem] w-[4.5rem] border-[3px] border-black bg-white">
+                {data.imageUrl ? (
+                  <div
+                    className="h-full w-full bg-cover bg-center"
+                    style={{ backgroundImage: `url(${data.imageUrl})` }}
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-[10px] font-bold uppercase text-black/40">
+                    Item
+                  </div>
+                )}
+              </div>
+              <div
+                className="absolute -bottom-2 -right-2 flex h-8 w-8 items-center justify-center border-2 border-black"
+                style={{ background: NEO_BRUT.yellow }}
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  className="h-4 w-4 text-black"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="3.5"
+                  strokeLinecap="square"
+                  strokeLinejoin="miter"
+                >
+                  <path
+                    d="M5 12.5l4.5 4.5L19 7"
+                    style={{
+                      strokeDasharray: 24,
+                      strokeDashoffset: 24,
+                      animation: "jiniNeoDraw 300ms ease-out 100ms forwards",
+                    }}
+                  />
+                </svg>
+              </div>
+            </div>
+
+            <div className="min-w-0 flex-1 pt-0.5">
+              <p className="line-clamp-2 text-[15px] font-black uppercase leading-tight tracking-tight text-black">
+                {data.itemName}
+              </p>
+              <div
+                className="mt-2.5 border-2 border-black px-2.5 py-2"
+                style={{ background: NEO_BRUT.sky }}
+              >
+                <p className="text-[11px] font-bold leading-snug text-black">
+                  ₹{data.paidInr.toLocaleString("en-IN")} paid
+                  <span className="mx-1 font-black">·</span>
+                  wallet ₹{data.balanceInr.toLocaleString("en-IN")}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

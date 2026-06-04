@@ -6,6 +6,10 @@ import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { LiveStreamChat } from "@/components/stream/live-stream-chat";
 import { LiveVideoStage } from "@/components/stream/live-video-stage";
 import {
+  NeoBrutConfetti,
+  NeoBrutPurchaseBanner,
+} from "@/components/stream/neo-brut-purchase-ui";
+import {
   PurchaseSuccessOverlay,
   type PurchaseSuccess,
 } from "@/components/stream/purchase-success-overlay";
@@ -1175,50 +1179,19 @@ function LiveRoomShellInner({ slug }: { slug: string }) {
         onDismiss={() => setPurchaseSuccess(null)}
       />
 
-      {/* ── Purchase celebration confetti (shared) ────────────────────────── */}
+      {/* ── Purchase celebration (others bought — neo-brut banner + confetti) ─ */}
       {purchaseCelebration ? (
         <div className="pointer-events-none fixed inset-0 z-[65] overflow-hidden">
-          <div className="absolute inset-0 bg-black/20" />
-          <div className="absolute inset-x-0 top-8 flex justify-center px-4">
-            <div className="rounded-full bg-white/95 px-5 py-2 text-sm font-semibold text-zinc-900 shadow-xl ring-1 ring-black/10">
-              {purchaseCelebration.message}
-            </div>
+          <div className="absolute inset-0 bg-black/25" aria-hidden />
+          <NeoBrutConfetti idPrefix={purchaseCelebration.id} count={22} />
+          <div className="absolute inset-x-0 top-[max(1.25rem,env(safe-area-inset-top))] flex justify-center">
+            <NeoBrutPurchaseBanner message={purchaseCelebration.message} />
           </div>
-          {Array.from({ length: 24 }).map((_, i) => (
-            <span
-              key={`${purchaseCelebration.id}-${i}`}
-              className="absolute h-2.5 w-2.5 animate-[jiniConfettiFall_1400ms_ease-out_forwards]"
-              style={{
-                left: `${(i * 37) % 100}%`,
-                top: "-8px",
-                background:
-                  i % 4 === 0
-                    ? "#a855f7"
-                    : i % 4 === 1
-                      ? "#f43f5e"
-                      : i % 4 === 2
-                        ? "#22c55e"
-                        : "#f59e0b",
-                transform: `rotate(${(i * 23) % 360}deg)`,
-                animationDelay: `${(i % 8) * 40}ms`,
-              }}
-            />
-          ))}
         </div>
       ) : null}
 
       {/* ── Global keyframe animations ─────────────────────────────────────── */}
       <style jsx global>{`
-        @keyframes jiniConfettiFall {
-          0% {
-            opacity: 1;
-            transform: translate3d(0, 0, 0) rotate(0deg);
-          }
-          100% {
-            opacity: 0;
-            transform: translate3d(0, 88vh, 0) rotate(540deg);
-          }
-        }
         @keyframes jiniSpotlightPulse {
           0% {
             transform: scale(0.992);
