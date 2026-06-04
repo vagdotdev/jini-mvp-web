@@ -176,13 +176,13 @@ export function LiveStreamChat({ streamId, variant = "sidebar" }: LiveStreamChat
     if (!streamId) return null;
     const overlayMessages = messages.slice(-7);
     return (
-      <div className="pointer-events-none flex flex-col justify-end gap-1.5">
+      <div className="pointer-events-none flex max-w-full flex-col justify-end gap-1.5">
         {overlayMessages.map((row) => {
           const { primary } = rowLabel(row, myUserId);
           const isPurchase = row.message_type === "purchase";
           const isSystem = row.message_type === "system";
           return (
-            <div key={row.id} className="flex items-start gap-2">
+            <div key={row.id} className="flex max-w-full items-start gap-2">
               <div
                 className={[
                   "mt-[3px] h-2 w-2 shrink-0 rounded-full",
@@ -193,7 +193,7 @@ export function LiveStreamChat({ streamId, variant = "sidebar" }: LiveStreamChat
                       : "bg-violet-400",
                 ].join(" ")}
               />
-              <p className="text-[12.5px] leading-snug [text-shadow:0_1px_4px_rgba(0,0,0,0.95),0_0_12px_rgba(0,0,0,0.7)]">
+              <p className="min-w-0 break-words text-[12.5px] leading-snug [text-shadow:0_1px_4px_rgba(0,0,0,0.95),0_0_12px_rgba(0,0,0,0.7)]">
                 <span
                   className={[
                     "font-semibold",

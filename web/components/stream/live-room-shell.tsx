@@ -880,13 +880,13 @@ function LiveRoomShellInner({ slug }: { slug: string }) {
             {/* ── Flex spacer — pushes all bottom content down ── */}
             <div className="min-h-0 flex-1" />
 
-            {/* ── Chat overlay ── */}
-            <div className="relative z-20 max-h-[36vh] overflow-hidden px-3 pb-2 pr-[20%]">
+            {/* ── Chat overlay (left column, leaves room for product on the right) ── */}
+            <div className="relative z-20 max-h-[32vh] w-[min(72%,17.5rem)] overflow-hidden px-3 pb-2">
               <LiveStreamChat variant="overlay" streamId={stream?.id ?? null} />
             </div>
 
-            {/* ── Chat input + quick reactions row ── */}
-            <div className="relative z-20 px-3 pb-2">
+            {/* ── Chat input + quick reactions (same width as chat, not full bleed) ── */}
+            <div className="relative z-20 w-[min(72%,17.5rem)] px-3 pb-2">
               {/* Input row */}
               <form
                 onSubmit={async (e) => {
@@ -896,7 +896,7 @@ function LiveRoomShellInner({ slug }: { slug: string }) {
                   setMobileDraft("");
                   await sendMobileMessage(text);
                 }}
-                className="flex h-10 items-center rounded-full border border-white/10 bg-white/10 pl-4 pr-1 backdrop-blur-2xl"
+                className="flex h-10 max-w-full items-center rounded-full border border-white/10 bg-black/35 pl-3.5 pr-1 backdrop-blur-md ring-1 ring-white/10"
               >
                 <input
                   value={mobileDraft}
@@ -961,14 +961,16 @@ function LiveRoomShellInner({ slug }: { slug: string }) {
               if (!featuredItem) return null;
               const { label, onClick, disabled, mineLocked } = getItemCTAProps(featuredItem);
               return (
-                <div className={[
-                  "relative z-20 transition-all duration-500",
-                  itemAnimClasses(featuredItem),
-                ].join(" ")}>
-                  {/* Product info card — dark glass floating over the video */}
-                  <div className="mx-3 flex items-center gap-3 rounded-[22px] border border-white/[0.15] bg-white/[0.12] p-2.5 backdrop-blur-[24px]">
+                <div
+                  className={[
+                    "relative z-20 mx-3 mb-[max(0.75rem,env(safe-area-inset-bottom))] transition-all duration-500",
+                    itemAnimClasses(featuredItem),
+                  ].join(" ")}
+                >
+                  {/* Product card + buy CTA (matches desktop overlay item cards) */}
+                  <article className="flex gap-3 rounded-3xl border border-white/[0.12] bg-white/[0.08] p-3 backdrop-blur-xl">
                     <div
-                      className="h-14 w-14 shrink-0 rounded-xl bg-zinc-800/40 bg-cover bg-center"
+                      className="h-20 w-[4.5rem] shrink-0 rounded-xl bg-zinc-800/40 bg-cover bg-center"
                       style={{
                         backgroundImage: featuredItem.image_display_url
                           ? `url(${featuredItem.image_display_url})`
@@ -976,55 +978,35 @@ function LiveRoomShellInner({ slug }: { slug: string }) {
                       }}
                     />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-white">
+                      <p className="line-clamp-2 text-sm font-medium leading-snug text-white">
                         {featuredItem.name}
                       </p>
-                      <div className="mt-0.5 flex items-baseline gap-1.5">
-                        <span className="text-sm font-bold text-white">
-                          ₹{featuredItem.price_inr}
-                        </span>
-                        <span className="text-xs text-white/50 line-through">
+                      <p className="mt-1 text-lg font-bold text-rose-400">
+                        ₹{featuredItem.price_inr}
+                        <span className="ml-2 text-xs font-normal text-white/45 line-through">
                           ₹{Math.round(featuredItem.price_inr * 1.5)}
                         </span>
-                      </div>
-                      <p className="mt-0.5 text-[11px] text-white/60">
-                        {featuredItem.size_label
-                          ? `Size: ${featuredItem.size_label}`
-                          : "One-off market find"}
                       </p>
+                      <p className="text-xs text-white/70">
+                        {featuredItem.size_label || "One-off market find"}
+                      </p>
+                      <button
+                        type="button"
+                        disabled={disabled}
+                        onClick={onClick}
+                        className={[
+                          "mt-3 flex min-h-11 w-full items-center justify-center rounded-full px-3 text-center text-xs font-bold shadow-lg shadow-white/10 transition-colors disabled:cursor-not-allowed disabled:opacity-70",
+                          featuredItem._isExiting
+                            ? "bg-white/50 text-zinc-500"
+                            : mineLocked
+                              ? "bg-white text-emerald-600"
+                              : "bg-white text-zinc-900",
+                        ].join(" ")}
+                      >
+                        {label}
+                      </button>
                     </div>
-                    <svg className="h-5 w-5 shrink-0 text-white/50" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-                      <path d="M9 18l6-6-6-6" />
-                    </svg>
-                  </div>
-
-                  {/* Buy It Now CTA — solid white pill, the only opaque element */}
-                  <div className="px-3 pt-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-                    <button
-                      type="button"
-                      disabled={disabled}
-                      onClick={onClick}
-                      className={[
-                        "flex h-[52px] w-full items-center justify-center gap-2 rounded-full text-sm font-bold shadow-lg shadow-white/15 transition-colors disabled:cursor-not-allowed disabled:opacity-70",
-                        featuredItem._isExiting
-                          ? "bg-white/60 text-zinc-500"
-                          : mineLocked
-                            ? "bg-white text-emerald-600"
-                            : "bg-white text-zinc-900",
-                      ].join(" ")}
-                    >
-                      <span>{label === "Buy now" ? "Buy It Now" : label}</span>
-                      {!featuredItem._isExiting && !mineLocked && label === "Buy now" && (
-                        <>
-                          <span className="text-zinc-400">•</span>
-                          <span>₹{featuredItem.price_inr}</span>
-                          <span className="text-sm font-normal text-zinc-400 line-through">
-                            ₹{Math.round(featuredItem.price_inr * 1.5)}
-                          </span>
-                        </>
-                      )}
-                    </button>
-                  </div>
+                  </article>
                 </div>
               );
             })()}
