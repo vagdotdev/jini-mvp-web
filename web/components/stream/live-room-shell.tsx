@@ -197,7 +197,15 @@ function LiveRoomShellInner({ slug }: { slug: string }) {
   const fadeTimersRef = useRef<Map<string, number>>(new Map());
   const seenItemIdsRef = useRef<Set<string>>(new Set());
   const pulseTimersRef = useRef<Map<string, number>>(new Map());
+  const myUserIdRef = useRef<string | null>(null);
   const [spotlightItemIds, setSpotlightItemIds] = useState<Set<string>>(new Set());
+
+  // Keep ref in sync so realtime callbacks + polls can read latest user id
+  // without re-subscribing channels (re-subscribe causes a Supabase channel
+  // collision that crashes the React tree on mobile).
+  useEffect(() => {
+    myUserIdRef.current = myUserId;
+  }, [myUserId]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNowMs(Date.now()), 1000);
@@ -481,6 +489,7 @@ function LiveRoomShellInner({ slug }: { slug: string }) {
           setItems(itemRows as StreamItem[]);
         }
 
+        if (!active) return;
         itemsChannel = supabase
           .channel(`stream-items:${data.id}`)
           .on(
@@ -506,6 +515,10 @@ function LiveRoomShellInner({ slug }: { slug: string }) {
             },
           )
           .subscribe();
+        if (!active && itemsChannel) {
+          void supabase.removeChannel(itemsChannel);
+          itemsChannel = null;
+        }
       } catch {
         setStatus("Could not load live room yet. Check your internet and refresh.");
       }
@@ -528,7 +541,7 @@ function LiveRoomShellInner({ slug }: { slug: string }) {
     }, 3000);
 
     const walletPoll = window.setInterval(() => {
-      if (!active || !myUserId) return;
+      if (!active || !myUserIdRef.current) return;
       void fetchWithTimeout("/api/account", {
         cache: "no-store",
         credentials: "include",
@@ -551,7 +564,10 @@ function LiveRoomShellInner({ slug }: { slug: string }) {
         void supabase.removeChannel(itemsChannel);
       }
     };
-  }, [myUserId, slug]);
+    // Intentionally only [slug]: re-running on myUserId change leaks the
+    // Supabase realtime channel and crashes the page.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slug]);
 
   useEffect(() => {
     const supabase = createBrowserSupabaseClient();
@@ -578,7 +594,10 @@ function LiveRoomShellInner({ slug }: { slug: string }) {
           seenPurchaseMessageIdsRef.current.add(row.id);
           const boughtItemName = parseBoughtItemName(row.message);
           if (!boughtItemName) return;
-          const mine = Boolean(row.user_id && myUserId && row.user_id === myUserId);
+          const currentUserId = myUserIdRef.current;
+          const mine = Boolean(
+            row.user_id && currentUserId && row.user_id === currentUserId,
+          );
           const buyerName = parseBuyerName(row.message);
           setPurchaseCelebration({
             id: row.id,
@@ -595,7 +614,10 @@ function LiveRoomShellInner({ slug }: { slug: string }) {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [myUserId, stream?.id]);
+    // Intentionally only [stream?.id]: re-subscribing on myUserId change
+    // collides with the still-removing channel and crashes the React tree.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stream?.id]);
 
   useEffect(() => {
     if (walletBalancePaise == null) return;
