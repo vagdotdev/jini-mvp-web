@@ -344,6 +344,42 @@
   @keyframes slideIn { to { opacity: 1; transform: none; } }
   @keyframes msgIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
+  /* ---------- Autopilot ---------- */
+  .ap-banner {
+    display: none; align-items: center; gap: 12px;
+    margin: 0 0 14px; max-width: 760px;
+    border-radius: 12px; padding: 12px 16px;
+    font-size: 13px; font-weight: 600; border: 1px solid transparent;
+  }
+  .ap-banner.show { display: flex; }
+  .ap-banner.running { background: linear-gradient(90deg, rgba(52,211,153,0.12), rgba(52,211,153,0.02)); border-color: rgba(52,211,153,0.35); color: var(--green); }
+  .ap-banner.paused { background: linear-gradient(90deg, rgba(251,191,36,0.14), rgba(251,191,36,0.03)); border-color: rgba(251,191,36,0.4); color: var(--amber); }
+  .ap-banner .ap-dot { width: 9px; height: 9px; border-radius: 50%; background: currentColor; box-shadow: 0 0 10px currentColor; animation: pulse 1.2s infinite; flex-shrink: 0; }
+  .ap-banner.paused .ap-dot { animation: none; }
+  .ap-banner .ap-counter { margin-left: auto; font-weight: 600; font-size: 11.5px; opacity: 0.85; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ap-banner b { color: var(--text); }
+
+  .ap-transcript { display: none; flex-direction: column; gap: 13px; max-width: 760px; padding: 2px 0 8px; }
+  .ap-transcript.show { display: flex; }
+  .turn { display: flex; gap: 11px; align-items: flex-start; animation: msgIn .35s ease; }
+  .turn .t-av { width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0; display: grid; place-items: center; font-size: 13px; font-weight: 700; }
+  .turn.fable .t-av { background: linear-gradient(135deg,#8b5cf6,#6d3ff5); color:#fff; }
+  .turn.you .t-av { background: var(--panel-2); border: 1px dashed var(--border); color: var(--text-dim); }
+  .turn.you.human .t-av { border-style: solid; border-color: var(--accent); color: var(--accent); }
+  .turn .t-body { flex: 1; min-width: 0; }
+  .turn .t-name { font-size: 11px; font-weight: 700; letter-spacing: 0.02em; margin-bottom: 3px; display: flex; align-items: center; }
+  .turn.fable .t-name { color: var(--accent); }
+  .turn.you .t-name { color: var(--text-faint); }
+  .turn.you.human .t-name { color: var(--accent); }
+  .turn .t-text { font-size: 14px; line-height: 1.55; color: var(--text); }
+  .turn.you .t-text { color: var(--text-dim); font-style: italic; }
+  .turn.you.human .t-text { color: var(--text); font-style: normal; }
+  .turn.fork .t-body { border-left: 2px solid var(--amber); padding-left: 12px; margin-left: -13px; }
+  .tag-auto { font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-faint); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; margin-left: 7px; }
+  .tag-human { color: var(--accent); border-color: rgba(124,92,255,0.4); }
+  .btn.armed { background: linear-gradient(135deg,#34d399,#10b981); color:#04120c; box-shadow: 0 4px 16px rgba(52,211,153,0.3); }
+  .btn.paused-btn { background: linear-gradient(135deg,#fbbf24,#f59e0b); color:#1a1206; }
+
   @media (max-width: 900px) {
     .stage { grid-template-columns: 1fr; }
     .rail { display: none; }
@@ -408,11 +444,15 @@
           <span class="b-dot"></span>
           <span id="deployText">Plan locked. Deploying agents off-stream…</span>
         </div>
+
+        <div class="ap-banner" id="apBanner"></div>
+        <div class="ap-transcript" id="apView"></div>
       </div>
 
       <div class="steer">
         <input id="steerInput" placeholder="Type a feature to plan (or a nudge mid-stream)… then hit Go live" />
         <button class="btn ghost" id="replayBtn" title="Replay the demo">↻ Replay</button>
+        <button class="btn ghost" id="autopilotBtn" title="Automate the boring turns; pause to add taste">⏻ Autopilot</button>
         <button class="btn primary" id="goBtn">Go live</button>
       </div>
     </div>
@@ -561,9 +601,15 @@
     chatEl.innerHTML = "";
     chatEl.appendChild(chatEmptyEl); chatEmptyEl.style.display = "";
     thinkEl.innerHTML = '<span class="muted">// Fable is idle. Drop a feature below and go live.</span>';
+    thinkEl.style.display = "";
     document.getElementById("planCard").classList.remove("show");
     document.getElementById("deployBanner").classList.remove("show");
     document.getElementById("planList").innerHTML = "";
+    if (apView) { apView.classList.remove("show"); apView.innerHTML = ""; }
+    if (apBanner) apBanner.classList.remove("show");
+    AP.state = "off"; apClearTimers();
+    if (apBtn) { apBtn.textContent = "⏻ Autopilot"; apBtn.className = "btn ghost"; }
+    document.getElementById("liveBadge").style.opacity = "1";
     document.getElementById("liveBadge").className = "live-badge off";
     document.getElementById("liveBadge").innerHTML = '<span class="dot-live"></span> OFFLINE';
     setFableStatus('<span class="think-dot"></span> waiting to go live…');
@@ -817,6 +863,153 @@
     return "rgba(" + r + "," + g + "," + b + "," + a + ")";
   }
 
+  // ---------- Autopilot: automate the boring 90%, pause for taste ----------
+  var AP = { state: "off", i: 0, autoTurns: 0, humanTurns: 0, pauseType: "manual", timers: [] };
+  var apSteps = [
+    { rec: "Store the limiter in Postgres with a sliding window — survives serverless cold starts.", auto: "yep, go with that" },
+    { rec: "10s window on chat; tighter on the lock path so nobody hammers reserve.", auto: "sounds right — next" },
+    { rec: "One limiter middleware, wrap chat / publish / lock with it.", auto: "do it" },
+    { rec: "For the 429 copy I'd write: \u201cSlow down a sec \uD83D\uDE42\u201d.", fork: true,
+      forkWho: "sentry", forkNote: "that\u2019s microcopy \u2014 your voice, not mine. weigh in?" },
+    { rec: "Burst-test the lock path at ~50 req/s before shipping.", auto: "yeah, run it" },
+    { rec: "Ship behind a flag, watch the first live stream, then widen.", auto: "ship it" },
+  ];
+
+  var apBanner = document.getElementById("apBanner");
+  var apView = document.getElementById("apView");
+  var apBtn = document.getElementById("autopilotBtn");
+
+  function apTimer(fn, d) { var t = setTimeout(function(){ if (AP.state !== "off") fn(); }, d); AP.timers.push(t); }
+  function apClearTimers() { AP.timers.forEach(clearTimeout); AP.timers = []; }
+
+  function showAutopilotView() {
+    thinkEl.style.display = "none";
+    document.getElementById("planCard").classList.remove("show");
+    document.getElementById("deployBanner").classList.remove("show");
+    apView.classList.add("show");
+    apView.innerHTML = "";
+  }
+
+  function addTurn(kind, name, text, opts) {
+    opts = opts || {};
+    var t = document.createElement("div");
+    t.className = "turn " + kind + (opts.human ? " human" : "") + (opts.fork ? " fork" : "");
+    var av = kind === "fable" ? "\u25C8" : "\u2726";
+    var tag = "";
+    if (kind === "you" && !opts.human) tag = '<span class="tag-auto">autopilot</span>';
+    if (kind === "you" && opts.human) tag = '<span class="tag-auto tag-human">you</span>';
+    t.innerHTML =
+      '<div class="t-av">' + av + '</div>' +
+      '<div class="t-body"><div class="t-name">' + name + tag + '</div>' +
+      '<div class="t-text">' + escapeHtml(text) + '</div></div>';
+    apView.appendChild(t);
+    thinkWrap.scrollTop = thinkWrap.scrollHeight;
+    return t;
+  }
+
+  function apUpdateBanner() {
+    apBanner.className = "ap-banner show " + (AP.state === "paused" ? "paused" : "running");
+    var counter = "you: " + AP.humanTurns + " \u00b7 autopilot: " + AP.autoTurns;
+    var msg = AP.state === "running"
+      ? '<span class="ap-dot"></span><span>Autopilot is driving \u2014 pushing through the boring turns in your voice</span>'
+      : '<span class="ap-dot"></span><span>Paused for taste \u2014 type your call below, then Resume</span>';
+    apBanner.innerHTML = msg + '<span class="ap-counter">' + counter + '</span>';
+  }
+
+  function startAutopilot() {
+    clearAll(); cancelled = true;
+    AP = { state: "running", i: 0, autoTurns: 0, humanTurns: 0, pauseType: "manual", timers: [] };
+    var badge = document.getElementById("liveBadge");
+    badge.className = "live-badge"; badge.style.opacity = "1";
+    badge.innerHTML = '<span class="dot-live"></span> LIVE';
+    if (!timerInt) startTimer();
+    document.getElementById("featureTitle").textContent = DEFAULT_FEATURE;
+    setPhase("autopilot");
+    setFableStatus('<span class="think-dot"></span> autopilot \u00b7 you can pause anytime');
+    AGENTS.forEach(function (a) { setAgentState(a.id, "listening", "listening"); });
+    showAutopilotView();
+    apUpdateBanner();
+    apBtn.textContent = "\u23F8 Pause & add taste";
+    apBtn.className = "btn paused-btn";
+    apTimer(apNext, 500);
+  }
+
+  function apNext() {
+    if (AP.state !== "running") return;
+    if (AP.i >= apSteps.length) return apFinish();
+    var step = apSteps[AP.i];
+    addTurn("fable", "Fable", step.rec, { fork: !!step.fork });
+    if (step.fork) {
+      apTimer(function () {
+        setAgentState(step.forkWho, "lean", "flagging");
+        pushMsg("agent", step.forkWho, step.forkNote);
+        apPauseForTaste();
+      }, 950);
+    } else {
+      apTimer(function () {
+        if (AP.state !== "running") return;
+        addTurn("you", "You", step.auto, { human: false });
+        AP.autoTurns++; apUpdateBanner();
+        AP.i++; apTimer(apNext, 850);
+      }, 1000);
+    }
+  }
+
+  function apPauseForTaste() {
+    AP.state = "paused"; AP.pauseType = "fork";
+    apUpdateBanner();
+    setFableStatus('\u23F8 paused \u2014 waiting on your taste');
+    apBtn.textContent = "\u25B6 Resume autopilot"; apBtn.className = "btn armed";
+    var input = document.getElementById("steerInput");
+    input.placeholder = "Your taste on this one\u2026 (press Enter)";
+    input.focus();
+  }
+
+  function apManualPause() {
+    AP.state = "paused"; AP.pauseType = "manual";
+    apClearTimers();
+    apUpdateBanner();
+    setFableStatus('\u23F8 paused by you \u2014 add taste, then resume');
+    apBtn.textContent = "\u25B6 Resume autopilot"; apBtn.className = "btn armed";
+    var input = document.getElementById("steerInput");
+    input.placeholder = "Add your taste\u2026 (press Enter), or just hit Resume";
+    input.focus();
+  }
+
+  function apInjectTaste(text) {
+    addTurn("you", "You", text, { human: true });
+    AP.humanTurns++;
+    if (AP.pauseType === "fork") AP.i++;
+    apResume();
+  }
+
+  function apResume() {
+    if (AP.state === "off") return;
+    AP.state = "running";
+    apUpdateBanner();
+    setFableStatus('<span class="think-dot"></span> autopilot \u00b7 you can pause anytime');
+    apBtn.textContent = "\u23F8 Pause & add taste"; apBtn.className = "btn paused-btn";
+    document.getElementById("steerInput").placeholder = "Type a feature to plan (or a nudge mid-stream)\u2026 then hit Go live";
+    apTimer(apNext, 500);
+  }
+
+  function apFinish() {
+    AP.state = "off"; apClearTimers();
+    setPhase("shipped");
+    setFableStatus('\u2713 autopilot done \u00b7 room idle');
+    apBanner.className = "ap-banner show running";
+    apBanner.innerHTML = '<span class="ap-dot" style="animation:none"></span>' +
+      '<span>Done. Autopilot drove <b>' + AP.autoTurns + '</b> turns; you stepped in on the <b>' + AP.humanTurns + '</b> that actually needed taste.</span>';
+    apBtn.textContent = "\u23FB Autopilot"; apBtn.className = "btn ghost";
+    addTurn("fable", "Fable", "Shipped. I handled the mechanical calls; you only spent judgment where it mattered. That\u2019s the whole point.", {});
+  }
+
+  function toggleAutopilot() {
+    if (AP.state === "off") startAutopilot();
+    else if (AP.state === "running") apManualPause();
+    else if (AP.state === "paused") apResume();
+  }
+
   // ---------- wiring ----------
   buildRoster();
 
@@ -833,9 +1026,13 @@
   document.getElementById("replayBtn").addEventListener("click", function () {
     run(DEFAULT_FEATURE);
   });
+  document.getElementById("autopilotBtn").addEventListener("click", toggleAutopilot);
   document.getElementById("steerInput").addEventListener("keydown", function (e) {
     if (e.key === "Enter") {
       var v = this.value;
+      // Autopilot: paused → inject taste and resume; running → live taste nudge.
+      if (AP.state === "paused" && v.trim()) { apInjectTaste(v.trim()); this.value = ""; e.preventDefault(); return; }
+      if (AP.state === "running" && v.trim()) { addTurn("you", "You", v.trim(), { human: true }); AP.humanTurns++; apUpdateBanner(); this.value = ""; e.preventDefault(); return; }
       // If a stream is already live, treat it as a mid-stream nudge instead of a restart.
       var phase = document.getElementById("phaseLabel").textContent;
       if (phase !== "idle" && phase !== "shipped" && v.trim()) {
