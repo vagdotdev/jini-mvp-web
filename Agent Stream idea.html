@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Agent Stream — a live room for planning with agents</title>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --bg-2: #101018;
+    --panel: #14141f;
+    --panel-2: #191926;
+    --border: #262636;
+    --border-soft: #1e1e2c;
+    --text: #e8e8f0;
+    --text-dim: #9a9ab0;
+    --text-faint: #63637a;
+    --accent: #a78bfa;      /* fable violet */
+    --accent-2: #7c5cff;
+    --live: #ff4d6d;
+    --green: #34d399;
+    --amber: #fbbf24;
+    --blue: #60a5fa;
+    --cyan: #22d3ee;
+    --pink: #f472b6;
+    --mono: 'SF Mono', 'JetBrains Mono', 'Fira Code', ui-monospace, 'Cascadia Code', Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body { height: 100%; }
+
+  body {
+    background:
+      radial-gradient(1200px 600px at 15% -10%, rgba(124,92,255,0.10), transparent 60%),
+      radial-gradient(900px 500px at 100% 0%, rgba(34,211,238,0.06), transparent 55%),
+      var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+  }
+
+  /* ---------- Top bar ---------- */
+  .topbar {
+    height: 58px;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    padding: 0 22px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(16,16,24,0.7);
+    backdrop-filter: blur(12px);
+    position: relative;
+    z-index: 10;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 11px;
+    font-weight: 700; letter-spacing: -0.02em; font-size: 16px;
+  }
+  .brand .glyph {
+    width: 28px; height: 28px; border-radius: 8px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    display: grid; place-items: center;
+    box-shadow: 0 0 18px rgba(124,92,255,0.5);
+    font-size: 15px;
+  }
+  .brand .sub { color: var(--text-faint); font-weight: 500; font-size: 12px; letter-spacing: 0; }
+
+  .live-badge {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: rgba(255,77,109,0.14);
+    border: 1px solid rgba(255,77,109,0.4);
+    color: #ff8098;
+    padding: 5px 11px; border-radius: 999px;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
+  }
+  .live-badge.off { background: rgba(120,120,140,0.1); border-color: var(--border); color: var(--text-faint); }
+  .dot-live { width: 8px; height: 8px; border-radius: 50%; background: var(--live); box-shadow: 0 0 8px var(--live); animation: pulse 1.4s infinite; }
+  .live-badge.off .dot-live { background: var(--text-faint); box-shadow: none; animation: none; }
+
+  .topbar .spacer { flex: 1; }
+  .stat {
+    display: flex; align-items: center; gap: 7px;
+    color: var(--text-dim); font-size: 12.5px; font-variant-numeric: tabular-nums;
+  }
+  .stat b { color: var(--text); font-weight: 600; }
+  .topbar .divider { width: 1px; height: 22px; background: var(--border); }
+
+  /* ---------- Layout ---------- */
+  .stage {
+    height: calc(100vh - 58px);
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    gap: 0;
+  }
+
+  /* ---------- Main (Fable) ---------- */
+  .main {
+    position: relative;
+    display: flex; flex-direction: column;
+    border-right: 1px solid var(--border);
+    min-width: 0;
+  }
+  .main-head {
+    display: flex; align-items: center; gap: 14px;
+    padding: 16px 22px;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  .avatar {
+    width: 44px; height: 44px; border-radius: 12px;
+    display: grid; place-items: center; font-weight: 700; font-size: 17px;
+    flex-shrink: 0;
+    position: relative;
+  }
+  .avatar.fable {
+    background: linear-gradient(135deg, #8b5cf6, #6d3ff5);
+    box-shadow: 0 6px 20px rgba(124,92,255,0.4);
+  }
+  .avatar .ring {
+    position: absolute; inset: -3px; border-radius: 14px;
+    border: 2px solid var(--accent); opacity: 0.5;
+    animation: breathe 2.6s ease-in-out infinite;
+  }
+  .main-head .who { display: flex; flex-direction: column; gap: 3px; }
+  .main-head .who .name { font-weight: 700; font-size: 16px; letter-spacing: -0.01em; display: flex; align-items: center; gap: 8px; }
+  .role-tag { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent); background: rgba(124,92,255,0.13); padding: 2px 7px; border-radius: 5px; }
+  .main-head .who .status { font-size: 12.5px; color: var(--text-dim); display: flex; align-items: center; gap: 6px; }
+  .status .think-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse 1s infinite; }
+
+  .main-head .feature {
+    margin-left: auto; text-align: right;
+    max-width: 340px;
+  }
+  .feature .label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-faint); }
+  .feature .title { font-size: 13.5px; color: var(--text); font-weight: 600; margin-top: 3px; line-height: 1.35; }
+
+  .thinking-wrap {
+    flex: 1; overflow-y: auto; padding: 22px 26px 10px;
+    position: relative;
+  }
+  .thinking-wrap::-webkit-scrollbar { width: 8px; }
+  .thinking-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  .think {
+    font-family: var(--mono);
+    font-size: 13.5px; line-height: 1.85;
+    color: var(--text-dim);
+    white-space: pre-wrap;
+    max-width: 760px;
+  }
+  .think .h { color: var(--accent); font-weight: 600; }
+  .think .k { color: var(--cyan); }
+  .think .g { color: var(--green); }
+  .think .a { color: var(--amber); }
+  .think .muted { color: var(--text-faint); }
+  .cursor {
+    display: inline-block; width: 8px; height: 16px;
+    background: var(--accent); vertical-align: text-bottom;
+    animation: blink 1s step-end infinite; margin-left: 1px;
+    border-radius: 1px;
+  }
+
+  /* Plan checklist that forms as Fable converges */
+  .plan-card {
+    margin: 18px 26px 0; max-width: 760px;
+    background: linear-gradient(180deg, rgba(124,92,255,0.06), rgba(124,92,255,0.02));
+    border: 1px solid rgba(124,92,255,0.25);
+    border-radius: 14px; padding: 0;
+    overflow: hidden;
+    opacity: 0; transform: translateY(10px);
+    transition: opacity .5s ease, transform .5s ease;
+  }
+  .plan-card.show { opacity: 1; transform: none; }
+  .plan-card .pc-head {
+    display: flex; align-items: center; gap: 9px;
+    padding: 12px 16px; border-bottom: 1px solid rgba(124,92,255,0.18);
+    font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--accent);
+  }
+  .plan-card ol { list-style: none; padding: 8px 8px; }
+  .plan-card li {
+    display: flex; align-items: center; gap: 11px;
+    padding: 9px 10px; border-radius: 9px;
+    font-size: 13.5px; color: var(--text);
+    opacity: 0; transform: translateX(-8px);
+    animation: slideIn .4s forwards;
+  }
+  .plan-card li .num {
+    width: 22px; height: 22px; border-radius: 6px; flex-shrink: 0;
+    background: rgba(124,92,255,0.16); color: var(--accent);
+    display: grid; place-items: center; font-size: 11px; font-weight: 700; font-family: var(--mono);
+  }
+  .plan-card li .owner {
+    margin-left: auto; font-size: 10.5px; font-weight: 600;
+    padding: 2px 8px; border-radius: 999px; letter-spacing: 0.02em;
+  }
+
+  /* Deploy banner */
+  .deploy-banner {
+    margin: 16px 26px 6px; max-width: 760px;
+    display: none;
+    align-items: center; gap: 12px;
+    background: linear-gradient(90deg, rgba(52,211,153,0.12), rgba(52,211,153,0.03));
+    border: 1px solid rgba(52,211,153,0.35);
+    color: var(--green); border-radius: 12px; padding: 13px 16px;
+    font-size: 13.5px; font-weight: 600;
+  }
+  .deploy-banner.show { display: flex; animation: slideIn .4s; }
+  .deploy-banner .b-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--green); box-shadow: 0 0 10px var(--green); animation: pulse 1.2s infinite; }
+
+  /* ---------- Steer bar ---------- */
+  .steer {
+    border-top: 1px solid var(--border-soft);
+    padding: 14px 22px;
+    display: flex; gap: 10px; align-items: center;
+    background: rgba(16,16,24,0.5);
+  }
+  .steer input {
+    flex: 1; background: var(--panel-2); border: 1px solid var(--border);
+    border-radius: 11px; padding: 12px 15px; color: var(--text);
+    font-family: var(--sans); font-size: 13.5px; outline: none;
+    transition: border-color .2s, box-shadow .2s;
+  }
+  .steer input:focus { border-color: var(--accent-2); box-shadow: 0 0 0 3px rgba(124,92,255,0.15); }
+  .steer input::placeholder { color: var(--text-faint); }
+  .btn {
+    border: none; cursor: pointer; font-family: var(--sans);
+    font-weight: 600; font-size: 13px; border-radius: 11px;
+    padding: 12px 18px; transition: transform .12s, filter .2s, background .2s;
+    white-space: nowrap;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn.primary { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: white; box-shadow: 0 4px 16px rgba(124,92,255,0.35); }
+  .btn.primary:hover { filter: brightness(1.08); }
+  .btn.ghost { background: var(--panel-2); color: var(--text-dim); border: 1px solid var(--border); }
+  .btn.ghost:hover { color: var(--text); border-color: var(--border); background: var(--panel); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ---------- Right rail ---------- */
+  .rail { display: flex; flex-direction: column; min-height: 0; background: var(--bg-2); }
+  .rail-section-title {
+    padding: 15px 18px 9px; font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.1em; color: var(--text-faint); font-weight: 700;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .rail-section-title .count { color: var(--text-dim); }
+
+  .roster { padding: 0 12px 8px; display: flex; flex-direction: column; gap: 4px; }
+  .agent {
+    display: flex; align-items: center; gap: 11px;
+    padding: 9px 10px; border-radius: 11px;
+    transition: background .25s, transform .25s;
+    position: relative;
+  }
+  .agent.lean { background: rgba(124,92,255,0.08); transform: translateX(2px); }
+  .agent.working { background: rgba(52,211,153,0.06); }
+  .agent .av {
+    width: 34px; height: 34px; border-radius: 9px; flex-shrink: 0;
+    display: grid; place-items: center; font-weight: 700; font-size: 13px;
+    color: #0a0a0f; position: relative;
+  }
+  .agent .av .pip {
+    position: absolute; right: -2px; bottom: -2px; width: 11px; height: 11px;
+    border-radius: 50%; border: 2px solid var(--bg-2); background: var(--text-faint);
+    transition: background .25s;
+  }
+  .agent.listening .av .pip { background: var(--blue); }
+  .agent.lean .av .pip { background: var(--accent); box-shadow: 0 0 7px var(--accent); animation: pulse 1s infinite; }
+  .agent.ready .av .pip { background: var(--amber); box-shadow: 0 0 7px var(--amber); }
+  .agent.working .av .pip { background: var(--green); box-shadow: 0 0 7px var(--green); animation: pulse 1s infinite; }
+  .agent.done .av .pip { background: var(--green); }
+
+  .agent .meta { min-width: 0; flex: 1; }
+  .agent .meta .n { font-size: 13.5px; font-weight: 600; display: flex; align-items: center; gap: 7px; }
+  .agent .meta .r { font-size: 11px; color: var(--text-faint); margin-top: 1px; }
+  .agent .st {
+    font-size: 10.5px; font-weight: 600; letter-spacing: 0.03em;
+    padding: 3px 8px; border-radius: 999px; white-space: nowrap;
+    background: var(--panel-2); color: var(--text-faint);
+    transition: all .25s;
+  }
+  .agent.listening .st { color: var(--blue); background: rgba(96,165,250,0.12); }
+  .agent.lean .st { color: var(--accent); background: rgba(124,92,255,0.14); }
+  .agent.ready .st { color: var(--amber); background: rgba(251,191,36,0.13); }
+  .agent.working .st { color: var(--green); background: rgba(52,211,153,0.13); }
+  .agent.done .st { color: var(--green); background: rgba(52,211,153,0.1); }
+
+  /* mini progress for working agents */
+  .agent .bar {
+    position: absolute; left: 10px; right: 10px; bottom: 4px; height: 2px;
+    background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden;
+    opacity: 0; transition: opacity .3s;
+  }
+  .agent.working .bar, .agent.done .bar { opacity: 1; }
+  .agent .bar i { display: block; height: 100%; width: 0%; background: var(--green); transition: width .3s linear; border-radius: 2px; }
+
+  .rail .divider-h { height: 1px; background: var(--border-soft); margin: 4px 14px; }
+
+  /* chat / reactions */
+  .chat { flex: 1; overflow-y: auto; padding: 6px 14px 12px; display: flex; flex-direction: column; gap: 2px; }
+  .chat::-webkit-scrollbar { width: 7px; }
+  .chat::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  .msg {
+    font-size: 13px; line-height: 1.5; padding: 4px 6px; border-radius: 7px;
+    animation: msgIn .35s ease; word-wrap: break-word;
+  }
+  .msg .nm { font-weight: 700; margin-right: 6px; }
+  .msg .txt { color: var(--text); }
+  .msg.sys { color: var(--text-faint); font-style: italic; font-size: 12px; }
+  .msg.sys .txt { color: var(--text-faint); }
+  .msg.steer { background: rgba(124,92,255,0.1); border: 1px solid rgba(124,92,255,0.2); }
+  .msg.steer .nm { color: var(--accent); }
+
+  .chat-empty { color: var(--text-faint); font-size: 12.5px; text-align: center; padding: 30px 20px; line-height: 1.6; }
+
+  /* intro overlay */
+  .intro {
+    position: fixed; inset: 0; z-index: 50;
+    background: radial-gradient(900px 500px at 50% 30%, rgba(124,92,255,0.14), transparent 60%), rgba(8,8,12,0.94);
+    backdrop-filter: blur(8px);
+    display: grid; place-items: center; text-align: center;
+    transition: opacity .5s, visibility .5s;
+  }
+  .intro.hidden { opacity: 0; visibility: hidden; }
+  .intro-card { max-width: 560px; padding: 0 30px; }
+  .intro .big-glyph {
+    width: 66px; height: 66px; border-radius: 18px; margin: 0 auto 22px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    display: grid; place-items: center; font-size: 32px;
+    box-shadow: 0 10px 40px rgba(124,92,255,0.5);
+  }
+  .intro h1 { font-size: 34px; letter-spacing: -0.03em; font-weight: 800; }
+  .intro h1 .grad { background: linear-gradient(90deg, var(--accent), var(--cyan)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+  .intro p { color: var(--text-dim); font-size: 15px; line-height: 1.7; margin: 16px 0 8px; }
+  .intro .tiny { color: var(--text-faint); font-size: 12.5px; margin-bottom: 30px; }
+  .intro .go { font-size: 15px; padding: 15px 30px; }
+  .intro .hint { margin-top: 18px; color: var(--text-faint); font-size: 12px; }
+
+  /* animations */
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+  @keyframes blink { 0%,50% { opacity: 1; } 50.01%,100% { opacity: 0; } }
+  @keyframes breathe { 0%,100% { transform: scale(1); opacity: 0.5; } 50% { transform: scale(1.06); opacity: 0.15; } }
+  @keyframes slideIn { to { opacity: 1; transform: none; } }
+  @keyframes msgIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+  @media (max-width: 900px) {
+    .stage { grid-template-columns: 1fr; }
+    .rail { display: none; }
+  }
+</style>
+</head>
+<body>
+
+  <!-- Intro -->
+  <div class="intro" id="intro">
+    <div class="intro-card">
+      <div class="big-glyph">◈</div>
+      <h1>Agent <span class="grad">Stream</span></h1>
+      <p>You don't prompt and wait. You <b>watch the room think.</b><br/>
+      Fable plans out loud. The other agents lean in, react, and — when the plan locks — peel off to do the work.</p>
+      <p class="tiny">A feel-prototype. Nothing here is real yet. Just press play and read the room.</p>
+      <button class="btn primary go" id="startBtn">▶  Enter the stream</button>
+      <div class="hint">best on desktop · ~40 seconds to watch it unfold</div>
+    </div>
+  </div>
+
+  <!-- Top bar -->
+  <div class="topbar">
+    <div class="brand">
+      <span class="glyph">◈</span>
+      <span>Agent Stream <span class="sub">· mission control for a room of agents</span></span>
+    </div>
+    <span class="live-badge off" id="liveBadge"><span class="dot-live"></span> OFFLINE</span>
+    <div class="spacer"></div>
+    <div class="stat"><span>⏱</span> <b id="timer">00:00</b></div>
+    <div class="divider"></div>
+    <div class="stat"><span>◕</span> <b id="agentCount">6</b> agents in room</div>
+    <div class="divider"></div>
+    <div class="stat"><span>◆</span> phase <b id="phaseLabel">idle</b></div>
+  </div>
+
+  <!-- Stage -->
+  <div class="stage">
+    <!-- Main: Fable -->
+    <div class="main">
+      <div class="main-head">
+        <div class="avatar fable">◈<span class="ring"></span></div>
+        <div class="who">
+          <div class="name">Fable <span class="role-tag">orchestrator</span></div>
+          <div class="status" id="fableStatus"><span class="think-dot"></span> waiting to go live…</div>
+        </div>
+        <div class="feature">
+          <div class="label">On the table</div>
+          <div class="title" id="featureTitle">— nothing yet —</div>
+        </div>
+      </div>
+
+      <div class="thinking-wrap" id="thinkingWrap">
+        <div class="think" id="think"><span class="muted">// Fable is idle. Drop a feature below and go live.</span></div>
+
+        <div class="plan-card" id="planCard">
+          <div class="pc-head">◆ Plan locked · orchestration</div>
+          <ol id="planList"></ol>
+        </div>
+
+        <div class="deploy-banner" id="deployBanner">
+          <span class="b-dot"></span>
+          <span id="deployText">Plan locked. Deploying agents off-stream…</span>
+        </div>
+      </div>
+
+      <div class="steer">
+        <input id="steerInput" placeholder="Type a feature to plan (or a nudge mid-stream)… then hit Go live" />
+        <button class="btn ghost" id="replayBtn" title="Replay the demo">↻ Replay</button>
+        <button class="btn primary" id="goBtn">Go live</button>
+      </div>
+    </div>
+
+    <!-- Right rail -->
+    <div class="rail">
+      <div class="rail-section-title">In the room <span class="count" id="rosterCount">6 online</span></div>
+      <div class="roster" id="roster"></div>
+
+      <div class="divider-h"></div>
+
+      <div class="rail-section-title">Reactions</div>
+      <div class="chat" id="chat">
+        <div class="chat-empty" id="chatEmpty">The room is quiet.<br/>Agents only speak when they've got something real.</div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------- Agent roster ----------
+  var AGENTS = [
+    { id: "composer", name: "Composer", role: "implementer", color: "#60a5fa", letter: "C" },
+    { id: "sentry",   name: "Sentry",   role: "reviewer / critic", color: "#f472b6", letter: "S" },
+    { id: "verify",   name: "Verify",   role: "test runner", color: "#34d399", letter: "V" },
+    { id: "ship",     name: "Ship",     role: "deploy", color: "#fbbf24", letter: "◆" },
+    { id: "scribe",   name: "Scribe",   role: "docs / journal", color: "#22d3ee", letter: "✎" },
+  ];
+
+  var rosterEl = document.getElementById("roster");
+  var agentEls = {};
+  function buildRoster() {
+    rosterEl.innerHTML = "";
+    agentEls = {};
+    AGENTS.forEach(function (a) {
+      var el = document.createElement("div");
+      el.className = "agent listening";
+      el.id = "agent-" + a.id;
+      el.innerHTML =
+        '<div class="av" style="background:' + a.color + '">' + a.letter +
+        '<span class="pip"></span></div>' +
+        '<div class="meta"><div class="n">' + a.name + '</div><div class="r">' + a.role + '</div></div>' +
+        '<div class="st">listening</div>' +
+        '<div class="bar"><i></i></div>';
+      rosterEl.appendChild(el);
+      agentEls[a.id] = el;
+    });
+    document.getElementById("rosterCount").textContent = (AGENTS.length + 1) + " online";
+    document.getElementById("agentCount").textContent = AGENTS.length + 1;
+  }
+
+  function setAgentState(id, state, statusText) {
+    var el = agentEls[id];
+    if (!el) return;
+    el.className = "agent " + state;
+    var st = el.querySelector(".st");
+    if (st) st.textContent = statusText || state;
+  }
+
+  function agentColor(id) {
+    for (var i = 0; i < AGENTS.length; i++) if (AGENTS[i].id === id) return AGENTS[i].color;
+    return "#9a9ab0";
+  }
+  function agentName(id) {
+    for (var i = 0; i < AGENTS.length; i++) if (AGENTS[i].id === id) return AGENTS[i].name;
+    return id;
+  }
+
+  // ---------- Chat ----------
+  var chatEl = document.getElementById("chat");
+  var chatEmptyEl = document.getElementById("chatEmpty");
+  function pushMsg(kind, who, text) {
+    if (chatEmptyEl && chatEmptyEl.parentNode) chatEmptyEl.style.display = "none";
+    var m = document.createElement("div");
+    if (kind === "sys") {
+      m.className = "msg sys";
+      m.innerHTML = '<span class="txt">' + text + '</span>';
+    } else if (kind === "steer") {
+      m.className = "msg steer";
+      m.innerHTML = '<span class="nm">You</span><span class="txt">' + escapeHtml(text) + '</span>';
+    } else {
+      m.className = "msg";
+      m.innerHTML = '<span class="nm" style="color:' + agentColor(who) + '">' + agentName(who) + '</span>' +
+                    '<span class="txt">' + escapeHtml(text) + '</span>';
+    }
+    chatEl.appendChild(m);
+    chatEl.scrollTop = chatEl.scrollHeight;
+  }
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"]/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+    });
+  }
+
+  // ---------- Timer ----------
+  var timerEl = document.getElementById("timer");
+  var timerInt = null, seconds = 0;
+  function startTimer() {
+    stopTimer(); seconds = 0;
+    timerInt = setInterval(function () {
+      seconds++;
+      var m = String(Math.floor(seconds / 60)).padStart(2, "0");
+      var s = String(seconds % 60).padStart(2, "0");
+      timerEl.textContent = m + ":" + s;
+    }, 1000);
+  }
+  function stopTimer() { if (timerInt) clearInterval(timerInt); timerInt = null; }
+
+  // ---------- Thinking stream (typewriter) ----------
+  var thinkEl = document.getElementById("think");
+  var thinkWrap = document.getElementById("thinkingWrap");
+  var cursorHTML = '<span class="cursor"></span>';
+
+  function typeInto(fullHtml, speed, done) {
+    // Types the plain text but preserves span markup by chunking on tokens.
+    // We type on a token buffer: split by spaces, keep markup intact.
+    var tokens = fullHtml.split(/(\s+)/);
+    var i = 0, acc = "";
+    (function step() {
+      if (cancelled) return;
+      if (i >= tokens.length) { thinkEl.innerHTML = acc; if (done) done(); return; }
+      acc += tokens[i]; i++;
+      thinkEl.innerHTML = acc + cursorHTML;
+      thinkWrap.scrollTop = thinkWrap.scrollHeight;
+      setTimeout(step, speed);
+    })();
+  }
+
+  // ---------- Scenario ----------
+  // Default feature echoes the Jini repo's own NextUp Phase A (rate limiting) — a little easter egg.
+  var DEFAULT_FEATURE = "Add rate limiting to chat, publish, and lock endpoints";
+
+  var timeouts = [];
+  var cancelled = false;
+  function schedule(fn, delay) { var t = setTimeout(function(){ if(!cancelled) fn(); }, delay); timeouts.push(t); }
+  function clearAll() { cancelled = true; timeouts.forEach(clearTimeout); timeouts = []; stopTimer(); }
+
+  function setPhase(p) { document.getElementById("phaseLabel").textContent = p; }
+  function setFableStatus(html) { document.getElementById("fableStatus").innerHTML = html; }
+
+  function reset() {
+    clearAll(); cancelled = false;
+    buildRoster();
+    chatEl.innerHTML = "";
+    chatEl.appendChild(chatEmptyEl); chatEmptyEl.style.display = "";
+    thinkEl.innerHTML = '<span class="muted">// Fable is idle. Drop a feature below and go live.</span>';
+    document.getElementById("planCard").classList.remove("show");
+    document.getElementById("deployBanner").classList.remove("show");
+    document.getElementById("planList").innerHTML = "";
+    document.getElementById("liveBadge").className = "live-badge off";
+    document.getElementById("liveBadge").innerHTML = '<span class="dot-live"></span> OFFLINE';
+    setFableStatus('<span class="think-dot"></span> waiting to go live…');
+    setPhase("idle");
+    timerEl.textContent = "00:00";
+  }
+
+  function run(feature) {
+    reset(); cancelled = false;
+    feature = (feature && feature.trim()) ? feature.trim() : DEFAULT_FEATURE;
+    document.getElementById("featureTitle").textContent = feature;
+
+    // go live
+    var badge = document.getElementById("liveBadge");
+    badge.className = "live-badge";
+    badge.innerHTML = '<span class="dot-live"></span> LIVE';
+    startTimer();
+    setPhase("planning");
+    setFableStatus('<span class="think-dot"></span> thinking out loud…');
+    AGENTS.forEach(function (a) { setAgentState(a.id, "listening", "listening"); });
+
+    // Build the "thinking" script. Uses default deep script for the demo feature,
+    // and a generic-but-believable script for any custom feature.
+    var isDefault = (feature === DEFAULT_FEATURE);
+    var script = isDefault ? defaultThinkScript() : genericThinkScript(feature);
+
+    // Reaction timeline — agents lean in and drop one-liners as Fable "thinks".
+    var reactions = isDefault ? defaultReactions() : genericReactions(feature);
+
+    // Fire reactions on a timeline (independent of typing).
+    reactions.forEach(function (r) {
+      schedule(function () {
+        if (r.lean) setAgentState(r.who, "lean", "leaning in");
+        if (r.ready) setAgentState(r.who, "ready", "ready");
+        if (r.text) pushMsg("agent", r.who, r.text);
+      }, r.at);
+    });
+
+    // System line
+    schedule(function () { pushMsg("sys", null, "Fable went live · 5 agents listening"); }, 400);
+
+    // Type the thinking, then converge.
+    schedule(function () {
+      typeThinkSequence(script, 0, function () {
+        converge(feature, isDefault);
+      });
+    }, 900);
+  }
+
+  function typeThinkSequence(chunks, idx, done) {
+    if (cancelled) return;
+    if (idx >= chunks.length) { if (done) done(); return; }
+    var prev = idx === 0 ? "" : chunks.slice(0, idx).join("");
+    // We type only the newest chunk, keeping previous rendered.
+    var base = prev;
+    var addition = chunks[idx];
+    // type addition
+    var tokens = addition.split(/(\s+)/);
+    var i = 0, acc = base;
+    (function step() {
+      if (cancelled) return;
+      if (i >= tokens.length) {
+        thinkEl.innerHTML = acc;
+        thinkWrap.scrollTop = thinkWrap.scrollHeight;
+        schedule(function(){ typeThinkSequence(chunks, idx + 1, done); }, 240);
+        return;
+      }
+      acc += tokens[i]; i++;
+      thinkEl.innerHTML = acc + cursorHTML;
+      thinkWrap.scrollTop = thinkWrap.scrollHeight;
+      setTimeout(step, 16 + Math.random() * 22);
+    })();
+  }
+
+  function converge(feature, isDefault) {
+    setPhase("converging");
+    setFableStatus('<span class="think-dot"></span> locking the plan…');
+    pushMsg("sys", null, "Fable is converging on a plan…");
+
+    var plan = isDefault ? defaultPlan() : genericPlan(feature);
+
+    schedule(function () {
+      document.getElementById("planCard").classList.add("show");
+      var list = document.getElementById("planList");
+      list.innerHTML = "";
+      plan.forEach(function (step, k) {
+        var li = document.createElement("li");
+        li.style.animationDelay = (k * 0.12) + "s";
+        li.innerHTML =
+          '<span class="num">' + (k + 1) + '</span>' +
+          '<span>' + escapeHtml(step.text) + '</span>' +
+          '<span class="owner" style="color:' + agentColor(step.owner) + ';background:' + hexA(agentColor(step.owner), 0.14) + '">' + agentName(step.owner) + '</span>';
+        list.appendChild(li);
+        schedule(function(){ setAgentState(step.owner, "ready", "assigned"); }, k * 140);
+      });
+    }, 700);
+
+    // Deploy after plan renders
+    schedule(function () {
+      setPhase("deploying");
+      setFableStatus('<span class="think-dot"></span> orchestrating · agents off-stream');
+      document.getElementById("deployBanner").classList.add("show");
+      pushMsg("sys", null, "Plan locked. Agents peeling off to execute →");
+      deployAgents(plan);
+    }, 700 + plan.length * 160 + 500);
+  }
+
+  function deployAgents(plan) {
+    var owners = [];
+    plan.forEach(function (s) { if (owners.indexOf(s.owner) < 0) owners.push(s.owner); });
+
+    owners.forEach(function (id, idx) {
+      schedule(function () {
+        setAgentState(id, "working", "working");
+        pushMsg("agent", id, workingLine(id));
+        // progress bar
+        var el = agentEls[id];
+        var bar = el ? el.querySelector(".bar i") : null;
+        var p = 0;
+        var pi = setInterval(function () {
+          if (cancelled) { clearInterval(pi); return; }
+          p += 6 + Math.random() * 12;
+          if (p >= 100) {
+            p = 100; clearInterval(pi);
+            if (bar) bar.style.width = "100%";
+            setAgentState(id, "done", "done ✓");
+            pushMsg("agent", id, doneLine(id));
+            checkAllDone(owners);
+          } else if (bar) bar.style.width = p + "%";
+        }, 420);
+      }, idx * 700);
+    });
+  }
+
+  var doneCount = 0;
+  function checkAllDone(owners) {
+    doneCount++;
+    if (doneCount >= owners.length) {
+      doneCount = 0;
+      schedule(function () {
+        setPhase("shipped");
+        setFableStatus('✓ shipped · room is idle again');
+        pushMsg("sys", null, "All agents finished. Feature shipped. Fable holds the room open.");
+        var badge = document.getElementById("liveBadge");
+        badge.className = "live-badge";
+        badge.style.opacity = "0.8";
+        document.getElementById("deployText").textContent = "Done. 4 agents executed in parallel — you never clicked a button.";
+      }, 500);
+    }
+  }
+
+  // ---------- Content: default (rate limiting) ----------
+  function defaultThinkScript() {
+    return [
+      '<span class="h">Okay — rate limiting on chat, publish, and lock.</span>\n\n',
+      'These three endpoints are the hot paths during a live drop. ',
+      'Chat is highest volume, publish is buddy-only, lock is the race-critical one. ',
+      'Different limits, same mechanism.\n\n',
+      '<span class="k">Thinking about the store…</span> in-memory won\'t survive serverless cold starts. ',
+      'Supabase already there — a tiny <span class="a">rate_limits</span> table with a sliding window, or lean on Postgres. ',
+      'Keep it boring.\n\n',
+      '<span class="k">Keys:</span> per-user for chat + lock, per-buddy-token for publish. ',
+      'Window ~10s for chat, tighter for lock so nobody hammers the reserve.\n\n',
+      '<span class="g">Failure copy matters</span> — a 429 mid-stream can\'t look like a crash. ',
+      'Soft "slow down a sec" for chat, firm but calm for lock.\n\n',
+      '<span class="muted">// converging…</span>'
+    ];
+  }
+  function defaultReactions() {
+    return [
+      { at: 2600, who: "composer", lean: true, text: "i can scaffold the limiter middleware" },
+      { at: 4200, who: "sentry",   lean: true, text: "per-user or per-IP? IP breaks on shared college wifi" },
+      { at: 6000, who: "verify",   lean: true, text: "i've got a burst load test for the lock path" },
+      { at: 8000, who: "sentry",   text: "watch the 429 copy — can't scare a buyer mid-drop" },
+      { at: 9500, who: "ship",     lean: true, text: "cron for lock-expiry already wired? don't double-limit it" },
+      { at: 11200, who: "scribe",  lean: true, text: "i'll log the limits in the journal + NextUp" },
+      { at: 12500, who: "composer", ready: true, text: "sliding window in Postgres, agreed. ready when you are" },
+    ];
+  }
+  function defaultPlan() {
+    return [
+      { text: "Add rate_limits table + sliding-window helper (Supabase)", owner: "composer" },
+      { text: "Wrap chat / publish / lock routes with the limiter", owner: "composer" },
+      { text: "Friendly 429 copy + client backoff on chat", owner: "sentry" },
+      { text: "Burst load test on the lock race path", owner: "verify" },
+      { text: "Ship behind flag, watch metrics on first stream", owner: "ship" },
+      { text: "Note limits in journal + NextUp Phase A", owner: "scribe" },
+    ];
+  }
+
+  // ---------- Content: generic (any custom feature) ----------
+  function genericThinkScript(feature) {
+    return [
+      '<span class="h">Alright — ' + escapeHtml(feature.toLowerCase()) + '.</span>\n\n',
+      'Let me find the smallest version that actually solves this ',
+      'before anyone touches a keybard. ',
+      'What breaks if we do the naive thing?\n\n',
+      '<span class="k">Surface area:</span> which files, which flows, what\'s the blast radius. ',
+      'Keep the change surgical — no drive-by refactors.\n\n',
+      '<span class="a">Edge cases</span> worth naming now so the room can react: ',
+      'empty state, failure copy, and what happens on a retry.\n\n',
+      '<span class="g">Success check:</span> how do we *know* it works — a test, a build, a runtime click.\n\n',
+      '<span class="muted">// converging…</span>'
+    ];
+  }
+  function genericReactions(feature) {
+    return [
+      { at: 2400, who: "composer", lean: true, text: "i can take the implementation" },
+      { at: 4000, who: "sentry",   lean: true, text: "what\'s the edge case we\'re ignoring here?" },
+      { at: 5800, who: "verify",   lean: true, text: "i\'ll write the check that proves it" },
+      { at: 7600, who: "scribe",   lean: true, text: "small enough to skip docs? or note it?" },
+      { at: 9200, who: "ship",     text: "flag it so we can roll back fast" },
+      { at: 10600, who: "composer", ready: true, text: "scoped it. ready when you are" },
+    ];
+  }
+  function genericPlan(feature) {
+    return [
+      { text: "Implement the smallest version of: " + feature, owner: "composer" },
+      { text: "Handle empty + failure states cleanly", owner: "sentry" },
+      { text: "Write one check that proves it works", owner: "verify" },
+      { text: "Ship behind a flag", owner: "ship" },
+      { text: "Note the decision", owner: "scribe" },
+    ];
+  }
+
+  function workingLine(id) {
+    var m = {
+      composer: "on it — writing the change now",
+      sentry:   "reviewing the diff as it lands",
+      verify:   "running the checks…",
+      ship:     "staging behind a flag",
+      scribe:   "updating the journal",
+    };
+    return m[id] || "working…";
+  }
+  function doneLine(id) {
+    var m = {
+      composer: "change is in ✓",
+      sentry:   "no blockers, one nit noted ✓",
+      verify:   "green ✓",
+      ship:     "staged, ready to roll ✓",
+      scribe:   "documented ✓",
+    };
+    return m[id] || "done ✓";
+  }
+
+  // ---------- utils ----------
+  function hexA(hex, a) {
+    var h = hex.replace("#", "");
+    var r = parseInt(h.substring(0,2),16), g = parseInt(h.substring(2,4),16), b = parseInt(h.substring(4,6),16);
+    return "rgba(" + r + "," + g + "," + b + "," + a + ")";
+  }
+
+  // ---------- wiring ----------
+  buildRoster();
+
+  var intro = document.getElementById("intro");
+  document.getElementById("startBtn").addEventListener("click", function () {
+    intro.classList.add("hidden");
+    run(DEFAULT_FEATURE);
+  });
+  document.getElementById("goBtn").addEventListener("click", function () {
+    var v = document.getElementById("steerInput").value;
+    document.getElementById("steerInput").value = "";
+    run(v);
+  });
+  document.getElementById("replayBtn").addEventListener("click", function () {
+    run(DEFAULT_FEATURE);
+  });
+  document.getElementById("steerInput").addEventListener("keydown", function (e) {
+    if (e.key === "Enter") {
+      var v = this.value;
+      // If a stream is already live, treat it as a mid-stream nudge instead of a restart.
+      var phase = document.getElementById("phaseLabel").textContent;
+      if (phase !== "idle" && phase !== "shipped" && v.trim()) {
+        pushMsg("steer", null, v.trim());
+        this.value = "";
+        // a couple of agents acknowledge the nudge
+        schedule(function(){ setAgentState("composer", "lean", "re-scoping"); pushMsg("agent","composer","noted — folding that in"); }, 500);
+        schedule(function(){ pushMsg("agent","sentry","good catch, adjusting"); }, 1400);
+        e.preventDefault();
+        return;
+      }
+      this.value = "";
+      run(v);
+      e.preventDefault();
+    }
+  });
+})();
+</script>
+</body>
+</html>
