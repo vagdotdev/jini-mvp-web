@@ -90,7 +90,7 @@
 
   /* ---------- Layout ---------- */
   .stage {
-    height: calc(100vh - 58px);
+    height: 100%;
     display: grid;
     grid-template-columns: 1fr 360px;
     gap: 0;
@@ -380,9 +380,97 @@
   .btn.armed { background: linear-gradient(135deg,#34d399,#10b981); color:#04120c; box-shadow: 0 4px 16px rgba(52,211,153,0.3); }
   .btn.paused-btn { background: linear-gradient(135deg,#fbbf24,#f59e0b); color:#1a1206; }
 
+  /* ---------- App shell + left sidebar ---------- */
+  .app { display: flex; height: 100vh; }
+  .sidebar {
+    width: 244px; flex-shrink: 0; height: 100vh;
+    background: #0c0c13; border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; overflow-y: auto; padding-bottom: 16px;
+  }
+  .sidebar::-webkit-scrollbar { width: 7px; }
+  .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  .ws-head { display: flex; align-items: center; gap: 10px; padding: 15px 16px; border-bottom: 1px solid var(--border-soft); }
+  .ws-head .glyph { width: 30px; height: 30px; border-radius: 8px; background: linear-gradient(135deg,var(--accent),var(--accent-2)); display: grid; place-items: center; font-size: 15px; box-shadow: 0 0 14px rgba(124,92,255,0.4); flex-shrink: 0; }
+  .ws-name { font-weight: 700; font-size: 14px; letter-spacing: -0.01em; }
+  .ws-sub { font-size: 11px; color: var(--text-faint); }
+  .side-section { padding: 12px 10px 4px; }
+  .side-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-faint); font-weight: 700; padding: 0 8px 8px; }
+  .nav-item {
+    width: 100%; text-align: left; display: flex; align-items: center; gap: 11px;
+    background: transparent; border: none; cursor: pointer; color: var(--text-dim);
+    padding: 9px 10px; border-radius: 10px; margin-bottom: 3px; font-family: var(--sans);
+    transition: background .18s, color .18s;
+  }
+  .nav-item:hover { background: var(--panel); color: var(--text); }
+  .nav-item.active { background: rgba(124,92,255,0.13); color: var(--text); }
+  .nav-item .ni-ic { width: 26px; height: 26px; border-radius: 7px; background: var(--panel-2); display: grid; place-items: center; font-size: 14px; flex-shrink: 0; color: var(--text-dim); }
+  .nav-item.active .ni-ic { background: var(--accent); color: #0a0a0f; }
+  .ni-t { font-size: 13.5px; font-weight: 600; }
+  .ni-s { font-size: 11px; color: var(--text-faint); margin-top: 1px; }
+  .chan { display: block; padding: 6px 10px; border-radius: 8px; color: var(--text-dim); font-size: 13.5px; cursor: pointer; text-decoration: none; transition: background .15s; }
+  .chan:hover { background: var(--panel); color: var(--text); }
+  .chan.active { background: var(--panel-2); color: var(--text); font-weight: 600; }
+  .side-mini { display: flex; align-items: center; gap: 9px; padding: 5px 10px; border-radius: 8px; }
+  .side-mini .m-av { width: 24px; height: 24px; border-radius: 6px; display: grid; place-items: center; font-size: 11px; font-weight: 700; color: #0a0a0f; flex-shrink: 0; }
+  .side-mini .m-name { font-size: 12.5px; color: var(--text-dim); }
+  .side-mini .m-tag { margin-left: auto; font-size: 9.5px; color: var(--accent); background: rgba(124,92,255,0.13); padding: 1px 6px; border-radius: 5px; font-weight: 600; }
+  .side-mini .m-dot { width: 8px; height: 8px; border-radius: 50%; margin-left: auto; background: var(--green); }
+
+  .workspace { flex: 1; display: flex; flex-direction: column; min-width: 0; height: 100vh; overflow: hidden; }
+  .topbar { flex-shrink: 0; }
+  .views { flex: 1; min-height: 0; position: relative; }
+  .view { position: absolute; inset: 0; display: none; }
+  .view.active { display: block; }
+
+  /* ---------- Team view (async, Slack-style) ---------- */
+  .team-wrap { display: flex; height: 100%; }
+  .team-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .team-head { padding: 15px 22px; border-bottom: 1px solid var(--border-soft); flex-shrink: 0; }
+  .team-head .th-t { font-size: 16px; font-weight: 700; letter-spacing: -0.01em; }
+  .team-head .th-s { font-size: 12.5px; color: var(--text-dim); margin-top: 3px; }
+  .team-msgs { flex: 1; overflow-y: auto; padding: 18px 22px; display: flex; flex-direction: column; gap: 17px; }
+  .team-msgs::-webkit-scrollbar { width: 8px; }
+  .team-msgs::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  .tmsg { display: flex; gap: 11px; align-items: flex-start; }
+  .tmsg .tm-av { width: 34px; height: 34px; border-radius: 9px; flex-shrink: 0; display: grid; place-items: center; font-size: 13px; font-weight: 700; }
+  .tmsg .tm-body { min-width: 0; flex: 1; }
+  .tmsg .tm-top { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .tmsg .tm-name { font-size: 13.5px; font-weight: 700; }
+  .tmsg .tm-badge { font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent); background: rgba(124,92,255,0.13); padding: 1px 6px; border-radius: 5px; }
+  .tmsg .tm-time { font-size: 11px; color: var(--text-faint); }
+  .tmsg .tm-text { font-size: 14px; line-height: 1.55; color: var(--text); margin-top: 3px; }
+  .diff-card { margin-top: 9px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: #0c0c13; max-width: 560px; }
+  .diff-card .dc-head { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--border-soft); font-size: 12px; color: var(--text-dim); font-family: var(--mono); }
+  .diff-card pre { padding: 10px 12px; font-family: var(--mono); font-size: 12px; line-height: 1.6; overflow-x: auto; margin: 0; }
+  .diff-card .add { color: var(--green); }
+  .diff-card .del { color: #ff6b81; }
+  .diff-card .dc-foot { display: flex; gap: 10px; padding: 8px 12px; border-top: 1px solid var(--border-soft); }
+  .pill-ok { font-size: 11px; color: var(--green); background: rgba(52,211,153,0.12); padding: 3px 9px; border-radius: 999px; font-weight: 600; }
+  .pill-wait { font-size: 11px; color: var(--amber); background: rgba(251,191,36,0.12); padding: 3px 9px; border-radius: 999px; font-weight: 600; }
+  .team-composer { flex-shrink: 0; border-top: 1px solid var(--border-soft); padding: 13px 22px; }
+  .team-composer input { width: 100%; background: var(--panel-2); border: 1px solid var(--border); border-radius: 11px; padding: 12px 15px; color: var(--text); font-family: var(--sans); font-size: 13.5px; outline: none; }
+  .team-composer input:focus { border-color: var(--accent-2); box-shadow: 0 0 0 3px rgba(124,92,255,0.15); }
+
+  .team-panel { width: 290px; flex-shrink: 0; border-left: 1px solid var(--border); background: var(--bg-2); overflow-y: auto; padding: 4px 0 20px; }
+  .team-panel::-webkit-scrollbar { width: 7px; }
+  .team-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  .tp-label { padding: 16px 18px 8px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-faint); font-weight: 700; }
+  .rule-card { margin: 0 12px 8px; border: 1px solid var(--border-soft); border-radius: 11px; padding: 11px 12px; background: var(--panel); }
+  .rule-card .rc-head { display: flex; align-items: center; gap: 9px; }
+  .rule-card .rc-av { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; font-size: 12px; font-weight: 700; color: #0a0a0f; flex-shrink: 0; }
+  .rule-card .rc-name { font-size: 13px; font-weight: 700; }
+  .rule-card .rc-role { font-size: 11px; color: var(--text-faint); }
+  .rule-card .rc-rule { font-size: 12px; color: var(--text-dim); margin-top: 8px; line-height: 1.5; border-top: 1px dashed var(--border); padding-top: 8px; }
+  .rule-card .rc-rule b { color: var(--text); font-weight: 600; }
+  .member-row { display: flex; align-items: center; gap: 10px; padding: 6px 18px; }
+  .member-row .mr-av { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; font-size: 12px; font-weight: 700; color: #0a0a0f; flex-shrink: 0; }
+  .member-row .mr-name { font-size: 13px; color: var(--text); }
+  .member-row .mr-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); margin-left: auto; }
+
   @media (max-width: 900px) {
     .stage { grid-template-columns: 1fr; }
     .rail { display: none; }
+    .sidebar, .team-panel { display: none; }
   }
 </style>
 </head>
@@ -401,6 +489,53 @@
     </div>
   </div>
 
+  <div class="app">
+
+  <!-- Left sidebar (Slack-style, first-person default) -->
+  <aside class="sidebar">
+    <div class="ws-head">
+      <span class="glyph">◈</span>
+      <div><div class="ws-name">Agent Stream</div><div class="ws-sub">your workspace</div></div>
+    </div>
+
+    <div class="side-section">
+      <div class="side-label">Modes</div>
+      <button class="nav-item active" data-view="stream">
+        <span class="ni-ic">◉</span>
+        <div class="ni-body"><div class="ni-t">Live Stream</div><div class="ni-s">you + Fable · real-time</div></div>
+      </button>
+      <button class="nav-item" data-view="team">
+        <span class="ni-ic">#</span>
+        <div class="ni-body"><div class="ni-t">Team</div><div class="ni-s">everyone + all agents</div></div>
+      </button>
+    </div>
+
+    <div class="side-section">
+      <div class="side-label">Channels</div>
+      <a class="chan active">#general</a>
+      <a class="chan">#ship-room</a>
+      <a class="chan">#design-taste</a>
+    </div>
+
+    <div class="side-section">
+      <div class="side-label">Your agents · rules on</div>
+      <div class="side-mini"><span class="m-av" style="background:#60a5fa">C</span><span class="m-name">Composer</span><span class="m-tag">rules</span></div>
+      <div class="side-mini"><span class="m-av" style="background:#f472b6">S</span><span class="m-name">Sentry</span><span class="m-tag">rules</span></div>
+      <div class="side-mini"><span class="m-av" style="background:#34d399">V</span><span class="m-name">Verify</span><span class="m-tag">rules</span></div>
+      <div class="side-mini"><span class="m-av" style="background:#fbbf24">◆</span><span class="m-name">Ship</span><span class="m-tag">rules</span></div>
+      <div class="side-mini"><span class="m-av" style="background:#22d3ee">✎</span><span class="m-name">Scribe</span><span class="m-tag">rules</span></div>
+    </div>
+
+    <div class="side-section">
+      <div class="side-label">Team · 3 online</div>
+      <div class="side-mini"><span class="m-av" style="background:#a78bfa">Y</span><span class="m-name">You</span><span class="m-dot"></span></div>
+      <div class="side-mini"><span class="m-av" style="background:#f9a8d4">A</span><span class="m-name">Aditi</span><span class="m-dot"></span></div>
+      <div class="side-mini"><span class="m-av" style="background:#93c5fd">R</span><span class="m-name">Rahul</span><span class="m-dot"></span></div>
+    </div>
+  </aside>
+
+  <div class="workspace">
+
   <!-- Top bar -->
   <div class="topbar">
     <div class="brand">
@@ -416,6 +551,10 @@
     <div class="stat"><span>◆</span> phase <b id="phaseLabel">idle</b></div>
   </div>
 
+  <div class="views">
+
+  <!-- View 1: synchronous Live Stream (default) -->
+  <div class="view view-stream active" id="viewStream">
   <!-- Stage -->
   <div class="stage">
     <!-- Main: Fable -->
@@ -470,6 +609,124 @@
       </div>
     </div>
   </div>
+  </div><!-- /view-stream -->
+
+  <!-- View 2: async Team chat (Slack-style — team + agents in one thread) -->
+  <div class="view view-team" id="viewTeam">
+    <div class="team-wrap">
+      <div class="team-main">
+        <div class="team-head">
+          <div class="th-t"># general</div>
+          <div class="th-s">Your team and every agent in one thread — async, catch up anytime. The stream is for when you go deep; this is for the rest.</div>
+        </div>
+        <div class="team-msgs" id="teamMsgs">
+
+          <div class="tmsg">
+            <div class="tm-av" style="background:#f9a8d4;color:#0a0a0f">A</div>
+            <div class="tm-body">
+              <div class="tm-top"><span class="tm-name">Aditi</span><span class="tm-time">9:41 AM</span></div>
+              <div class="tm-text">we need rate limiting on chat + lock before tonight's Sarojini stream 🙏 @Fable can you take it</div>
+            </div>
+          </div>
+
+          <div class="tmsg">
+            <div class="tm-av" style="background:linear-gradient(135deg,#8b5cf6,#6d3ff5);color:#fff">◈</div>
+            <div class="tm-body">
+              <div class="tm-top"><span class="tm-name">Fable</span><span class="tm-badge">agent</span><span class="tm-time">9:41 AM</span></div>
+              <div class="tm-text">On it. Sliding-window limiter in Postgres — 10s on chat, tighter on the lock path. Wrapping all three routes with one middleware.</div>
+              <div class="diff-card">
+                <div class="dc-head">◆ web/lib/limiter.ts · +34 −2</div>
+                <pre><span class="add">+ export async function rateLimit(key, windowMs, max) {</span>
+<span class="add">+   const hits = await countHits(key, windowMs);</span>
+<span class="add">+   if (hits >= max) return { ok: false, retryAfter };</span>
+<span class="add">+   return { ok: true };</span>
+<span class="add">+ }</span></pre>
+                <div class="dc-foot"><span class="pill-ok">6 tests passed</span><span class="pill-wait">review pending</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="tmsg">
+            <div class="tm-av" style="background:#f472b6;color:#0a0a0f">S</div>
+            <div class="tm-body">
+              <div class="tm-top"><span class="tm-name">Sentry</span><span class="tm-badge">agent</span><span class="tm-time">9:43 AM</span></div>
+              <div class="tm-text">Reviewed the diff — logic's clean, race path is covered. The 429 copy is a taste call though, so I'm not approving that alone. Flagging @You.</div>
+            </div>
+          </div>
+
+          <div class="tmsg">
+            <div class="tm-av" style="background:#a78bfa;color:#0a0a0f">Y</div>
+            <div class="tm-body">
+              <div class="tm-top"><span class="tm-name">You</span><span class="tm-time">9:45 AM</span></div>
+              <div class="tm-text">make it cheeky — "chill, one sec ✋" not a scary error. buyers are mid-drop, don't spook them</div>
+            </div>
+          </div>
+
+          <div class="tmsg">
+            <div class="tm-av" style="background:#60a5fa;color:#0a0a0f">C</div>
+            <div class="tm-body">
+              <div class="tm-top"><span class="tm-name">Composer</span><span class="tm-badge">agent</span><span class="tm-time">9:46 AM</span></div>
+              <div class="tm-text">Updated the copy to your line and pushed. Diff's on the same branch.</div>
+            </div>
+          </div>
+
+          <div class="tmsg">
+            <div class="tm-av" style="background:#fbbf24;color:#0a0a0f">◆</div>
+            <div class="tm-body">
+              <div class="tm-top"><span class="tm-name">Ship</span><span class="tm-badge">agent</span><span class="tm-time">9:47 AM</span></div>
+              <div class="tm-text">Staged behind flag <code style="font-family:var(--mono);font-size:12px;color:var(--amber)">rate_limits_v1</code> ✓ — ready to roll after the stream. Not touching prod without a 👍.</div>
+            </div>
+          </div>
+
+          <div class="tmsg">
+            <div class="tm-av" style="background:#93c5fd;color:#0a0a0f">R</div>
+            <div class="tm-body">
+              <div class="tm-top"><span class="tm-name">Rahul</span><span class="tm-time">9:48 AM</span></div>
+              <div class="tm-text">clean. ship it once we're live 🚀</div>
+            </div>
+          </div>
+
+        </div>
+        <div class="team-composer">
+          <input placeholder="Message #general — @mention an agent to hand it work…" />
+        </div>
+      </div>
+
+      <div class="team-panel">
+        <div class="tp-label">Agents · your rules</div>
+
+        <div class="rule-card">
+          <div class="rc-head"><span class="rc-av" style="background:#60a5fa">C</span><div><div class="rc-name">Composer</div><div class="rc-role">implementer</div></div></div>
+          <div class="rc-rule"><b>Match repo conventions.</b> No new deps without asking. Smallest diff that works.</div>
+        </div>
+        <div class="rule-card">
+          <div class="rc-head"><span class="rc-av" style="background:#f472b6">S</span><div><div class="rc-name">Sentry</div><div class="rc-role">reviewer / critic</div></div></div>
+          <div class="rc-rule"><b>Flag security + taste calls to a human.</b> Never approve microcopy or product voice alone.</div>
+        </div>
+        <div class="rule-card">
+          <div class="rc-head"><span class="rc-av" style="background:#34d399">V</span><div><div class="rc-name">Verify</div><div class="rc-role">test runner</div></div></div>
+          <div class="rc-rule"><b>Block merge if coverage drops.</b> Always test the race path before green.</div>
+        </div>
+        <div class="rule-card">
+          <div class="rc-head"><span class="rc-av" style="background:#fbbf24">◆</span><div><div class="rc-name">Ship</div><div class="rc-role">deploy</div></div></div>
+          <div class="rc-rule"><b>Everything behind a flag.</b> Never deploy anything irreversible without human sign-off.</div>
+        </div>
+        <div class="rule-card">
+          <div class="rc-head"><span class="rc-av" style="background:#22d3ee">✎</span><div><div class="rc-name">Scribe</div><div class="rc-role">docs / journal</div></div></div>
+          <div class="rc-rule"><b>Log every decision</b> to the journal + NextUp so context never gets lost.</div>
+        </div>
+
+        <div class="tp-label">Team · 3 online</div>
+        <div class="member-row"><span class="mr-av" style="background:#a78bfa">Y</span><span class="mr-name">You</span><span class="mr-dot"></span></div>
+        <div class="member-row"><span class="mr-av" style="background:#f9a8d4">A</span><span class="mr-name">Aditi · PM</span><span class="mr-dot"></span></div>
+        <div class="member-row"><span class="mr-av" style="background:#93c5fd">R</span><span class="mr-name">Rahul · eng</span><span class="mr-dot"></span></div>
+      </div>
+    </div>
+  </div><!-- /view-team -->
+
+  </div><!-- /views -->
+  </div><!-- /workspace -->
+  </div><!-- /app -->
 
 <script>
 (function () {
@@ -1048,6 +1305,25 @@
       run(v);
       e.preventDefault();
     }
+  });
+
+  // ---------- sidebar view switching ----------
+  var navItems = document.querySelectorAll(".nav-item[data-view]");
+  function switchView(v) {
+    document.getElementById("viewStream").classList.toggle("active", v === "stream");
+    document.getElementById("viewTeam").classList.toggle("active", v === "team");
+    navItems.forEach(function (n) { n.classList.toggle("active", n.getAttribute("data-view") === v); });
+  }
+  navItems.forEach(function (n) {
+    n.addEventListener("click", function () { switchView(n.getAttribute("data-view")); });
+  });
+  document.querySelectorAll(".chan").forEach(function (c) {
+    c.addEventListener("click", function (e) {
+      e.preventDefault();
+      document.querySelectorAll(".chan").forEach(function (x) { x.classList.remove("active"); });
+      c.classList.add("active");
+      switchView("team");
+    });
   });
 })();
 </script>
