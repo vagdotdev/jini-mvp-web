@@ -6,23 +6,23 @@
 <title>Agent Stream — a live room for planning with agents</title>
 <style>
   :root {
-    --bg: #0a0a0f;
-    --bg-2: #101018;
-    --panel: #14141f;
-    --panel-2: #191926;
-    --border: #262636;
-    --border-soft: #1e1e2c;
-    --text: #e8e8f0;
-    --text-dim: #9a9ab0;
-    --text-faint: #63637a;
-    --accent: #a78bfa;      /* fable violet */
-    --accent-2: #7c5cff;
-    --live: #ff4d6d;
-    --green: #34d399;
-    --amber: #fbbf24;
-    --blue: #60a5fa;
-    --cyan: #22d3ee;
-    --pink: #f472b6;
+    --bg: #0e0e10;
+    --bg-2: #131316;
+    --panel: #18181b;
+    --panel-2: #1f1f23;
+    --border: #2a2a2e;
+    --border-soft: #202024;
+    --text: #efeff1;
+    --text-dim: #adadb8;
+    --text-faint: #6e6e78;
+    --accent: #bf94ff;      /* twitch-ish purple */
+    --accent-2: #9147ff;
+    --live: #eb0400;
+    --green: #00c880;
+    --amber: #ffca28;
+    --blue: #58a6ff;
+    --cyan: #2bd4d9;
+    --pink: #ff6ac1;
     --mono: 'SF Mono', 'JetBrains Mono', 'Fira Code', ui-monospace, 'Cascadia Code', Menlo, Consolas, monospace;
     --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, Helvetica, Arial, sans-serif;
   }
@@ -33,8 +33,7 @@
 
   body {
     background:
-      radial-gradient(1200px 600px at 15% -10%, rgba(124,92,255,0.10), transparent 60%),
-      radial-gradient(900px 500px at 100% 0%, rgba(34,211,238,0.06), transparent 55%),
+      radial-gradient(1200px 600px at 15% -10%, rgba(145,71,255,0.08), transparent 60%),
       var(--bg);
     color: var(--text);
     font-family: var(--sans);
@@ -237,29 +236,36 @@
   .btn.ghost:hover { color: var(--text); border-color: var(--border); background: var(--panel); }
   .btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
-  /* ---------- Right rail ---------- */
+  /* ---------- Right rail: Twitch-style Stream Chat ---------- */
   .rail { display: flex; flex-direction: column; min-height: 0; background: var(--bg-2); }
-  .rail-section-title {
-    padding: 15px 18px 9px; font-size: 11px; text-transform: uppercase;
-    letter-spacing: 0.1em; color: var(--text-faint); font-weight: 700;
-    display: flex; align-items: center; justify-content: space-between;
+  .chat-header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 0 14px; height: 48px; flex-shrink: 0;
+    border-bottom: 1px solid var(--border);
   }
-  .rail-section-title .count { color: var(--text-dim); }
+  .chat-header .ch-ic { color: var(--text-dim); font-size: 15px; cursor: pointer; width: 22px; text-align: center; }
+  .chat-header .ch-title { flex: 1; text-align: center; font-weight: 700; font-size: 13.5px; letter-spacing: 0.01em; }
+  .chat-header .ch-count { font-size: 11px; color: var(--text-faint); font-weight: 600; }
 
-  .roster { padding: 0 12px 8px; display: flex; flex-direction: column; gap: 4px; }
-  .agent {
-    display: flex; align-items: center; gap: 11px;
-    padding: 9px 10px; border-radius: 11px;
-    transition: background .25s, transform .25s;
-    position: relative;
+  /* agent presence strip (horizontal) */
+  .presence {
+    display: flex; gap: 6px; padding: 10px 12px; flex-shrink: 0;
+    overflow-x: auto; border-bottom: 1px solid var(--border-soft);
   }
-  .agent.lean { background: rgba(124,92,255,0.08); transform: translateX(2px); }
-  .agent.working { background: rgba(52,211,153,0.06); }
+  .presence::-webkit-scrollbar { height: 0; }
+  .agent {
+    display: flex; flex-direction: column; align-items: center; gap: 5px;
+    padding: 4px 4px 6px; border-radius: 10px; min-width: 52px;
+    position: relative; transition: background .25s; cursor: default;
+  }
+  .agent.lean { background: rgba(145,71,255,0.10); }
+  .agent.working { background: rgba(0,200,128,0.08); }
   .agent .av {
     width: 34px; height: 34px; border-radius: 9px; flex-shrink: 0;
     display: grid; place-items: center; font-weight: 700; font-size: 13px;
-    color: #0a0a0f; position: relative;
+    color: #0a0a0f; position: relative; transition: box-shadow .25s;
   }
+  .agent.lean .av { box-shadow: 0 0 0 2px var(--accent); }
   .agent .av .pip {
     position: absolute; right: -2px; bottom: -2px; width: 11px; height: 11px;
     border-radius: 50%; border: 2px solid var(--bg-2); background: var(--text-faint);
@@ -270,49 +276,54 @@
   .agent.ready .av .pip { background: var(--amber); box-shadow: 0 0 7px var(--amber); }
   .agent.working .av .pip { background: var(--green); box-shadow: 0 0 7px var(--green); animation: pulse 1s infinite; }
   .agent.done .av .pip { background: var(--green); }
-
-  .agent .meta { min-width: 0; flex: 1; }
-  .agent .meta .n { font-size: 13.5px; font-weight: 600; display: flex; align-items: center; gap: 7px; }
-  .agent .meta .r { font-size: 11px; color: var(--text-faint); margin-top: 1px; }
-  .agent .st {
-    font-size: 10.5px; font-weight: 600; letter-spacing: 0.03em;
-    padding: 3px 8px; border-radius: 999px; white-space: nowrap;
-    background: var(--panel-2); color: var(--text-faint);
-    transition: all .25s;
-  }
-  .agent.listening .st { color: var(--blue); background: rgba(96,165,250,0.12); }
-  .agent.lean .st { color: var(--accent); background: rgba(124,92,255,0.14); }
-  .agent.ready .st { color: var(--amber); background: rgba(251,191,36,0.13); }
-  .agent.working .st { color: var(--green); background: rgba(52,211,153,0.13); }
-  .agent.done .st { color: var(--green); background: rgba(52,211,153,0.1); }
-
-  /* mini progress for working agents */
-  .agent .bar {
-    position: absolute; left: 10px; right: 10px; bottom: 4px; height: 2px;
-    background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden;
-    opacity: 0; transition: opacity .3s;
-  }
+  .agent .ag-name { font-size: 10px; font-weight: 600; color: var(--text-dim); max-width: 52px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .agent.lean .ag-name { color: var(--accent); }
+  .agent .st { display: none; }
+  .agent .bar { position: absolute; left: 6px; right: 6px; bottom: 1px; height: 2px; background: transparent; border-radius: 2px; overflow: hidden; opacity: 0; transition: opacity .3s; }
   .agent.working .bar, .agent.done .bar { opacity: 1; }
   .agent .bar i { display: block; height: 100%; width: 0%; background: var(--green); transition: width .3s linear; border-radius: 2px; }
 
-  .rail .divider-h { height: 1px; background: var(--border-soft); margin: 4px 14px; }
+  /* pinned message */
+  .pinned {
+    margin: 10px 12px 4px; padding: 9px 12px; border-radius: 8px;
+    background: var(--panel); border: 1px solid var(--border-soft); flex-shrink: 0;
+  }
+  .pinned .pin-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-faint); display: flex; align-items: center; gap: 5px; }
+  .pinned .pin-text { font-size: 12.5px; color: var(--text-dim); margin-top: 4px; line-height: 1.45; }
 
-  /* chat / reactions */
-  .chat { flex: 1; overflow-y: auto; padding: 6px 14px 12px; display: flex; flex-direction: column; gap: 2px; }
+  /* chat feed */
+  .chat { flex: 1; overflow-y: auto; padding: 8px 12px 10px; display: flex; flex-direction: column; gap: 3px; }
   .chat::-webkit-scrollbar { width: 7px; }
   .chat::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
   .msg {
-    font-size: 13px; line-height: 1.5; padding: 4px 6px; border-radius: 7px;
-    animation: msgIn .35s ease; word-wrap: break-word;
+    font-size: 13px; line-height: 1.55; padding: 4px 7px; border-radius: 6px;
+    animation: msgIn .3s ease; word-wrap: break-word;
   }
-  .msg .nm { font-weight: 700; margin-right: 6px; }
+  .msg:hover { background: rgba(255,255,255,0.03); }
+  .msg .ts { font-size: 10px; color: var(--text-faint); margin-right: 6px; font-variant-numeric: tabular-nums; }
+  .msg .nm { font-weight: 700; }
+  .msg .role { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-faint); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; margin: 0 5px 0 5px; vertical-align: 1px; }
+  .msg .sep { color: var(--text-faint); margin-right: 5px; }
   .msg .txt { color: var(--text); }
-  .msg.sys { color: var(--text-faint); font-style: italic; font-size: 12px; }
-  .msg.sys .txt { color: var(--text-faint); }
-  .msg.steer { background: rgba(124,92,255,0.1); border: 1px solid rgba(124,92,255,0.2); }
+  .msg.sys { color: var(--text-faint); font-size: 11.5px; padding: 5px 7px; }
+  .msg.sys .txt { color: var(--text-faint); font-style: italic; }
+  .msg.steer { background: rgba(145,71,255,0.12); border: 1px solid rgba(145,71,255,0.28); }
   .msg.steer .nm { color: var(--accent); }
 
-  .chat-empty { color: var(--text-faint); font-size: 12.5px; text-align: center; padding: 30px 20px; line-height: 1.6; }
+  .chat-empty { color: var(--text-faint); font-size: 12.5px; text-align: center; padding: 26px 20px; line-height: 1.6; }
+
+  /* send box */
+  .chat-send { flex-shrink: 0; padding: 10px 12px 12px; }
+  .chat-send .cs-box {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px;
+    padding: 9px 11px; transition: border-color .2s;
+  }
+  .chat-send .cs-box:focus-within { border-color: var(--accent-2); }
+  .chat-send input { flex: 1; background: transparent; border: none; outline: none; color: var(--text); font-family: var(--sans); font-size: 13px; }
+  .chat-send input::placeholder { color: var(--text-faint); }
+  .chat-send .cs-ic { color: var(--text-dim); font-size: 15px; cursor: pointer; }
+  .chat-send .cs-hint { font-size: 10.5px; color: var(--text-faint); text-align: right; margin-top: 7px; padding-right: 2px; }
 
   /* intro overlay */
   .intro {
@@ -511,13 +522,6 @@
     </div>
 
     <div class="side-section">
-      <div class="side-label">Channels</div>
-      <a class="chan active">#general</a>
-      <a class="chan">#ship-room</a>
-      <a class="chan">#design-taste</a>
-    </div>
-
-    <div class="side-section">
       <div class="side-label">Your agents · rules on</div>
       <div class="side-mini"><span class="m-av" style="background:#60a5fa">C</span><span class="m-name">Composer</span><span class="m-tag">rules</span></div>
       <div class="side-mini"><span class="m-av" style="background:#f472b6">S</span><span class="m-name">Sentry</span><span class="m-tag">rules</span></div>
@@ -596,16 +600,31 @@
       </div>
     </div>
 
-    <!-- Right rail -->
+    <!-- Right rail: Stream Chat -->
     <div class="rail">
-      <div class="rail-section-title">In the room <span class="count" id="rosterCount">6 online</span></div>
-      <div class="roster" id="roster"></div>
+      <div class="chat-header">
+        <span class="ch-ic">↤</span>
+        <span class="ch-title">Stream Chat</span>
+        <span class="ch-count" id="rosterCount">5 agents</span>
+      </div>
 
-      <div class="divider-h"></div>
+      <div class="presence" id="roster"></div>
 
-      <div class="rail-section-title">Reactions</div>
+      <div class="pinned">
+        <div class="pin-label">📌 how this room works</div>
+        <div class="pin-text">Agents only speak when they've got something real. A quiet room is a good room.</div>
+      </div>
+
       <div class="chat" id="chat">
-        <div class="chat-empty" id="chatEmpty">The room is quiet.<br/>Agents only speak when they've got something real.</div>
+        <div class="chat-empty" id="chatEmpty">The room is quiet.<br/>Hit <b>Go live</b> and watch the agents react.</div>
+      </div>
+
+      <div class="chat-send">
+        <div class="cs-box">
+          <input id="chatSend" placeholder="Say something to the room…" />
+          <span class="cs-ic">☺</span>
+        </div>
+        <div class="cs-hint">agents read the room · they answer when it matters</div>
       </div>
     </div>
   </div>
@@ -750,16 +769,18 @@
       var el = document.createElement("div");
       el.className = "agent listening";
       el.id = "agent-" + a.id;
+      el.title = a.name + " · " + a.role;
       el.innerHTML =
         '<div class="av" style="background:' + a.color + '">' + a.letter +
         '<span class="pip"></span></div>' +
-        '<div class="meta"><div class="n">' + a.name + '</div><div class="r">' + a.role + '</div></div>' +
+        '<div class="ag-name">' + a.name + '</div>' +
         '<div class="st">listening</div>' +
         '<div class="bar"><i></i></div>';
       rosterEl.appendChild(el);
       agentEls[a.id] = el;
     });
-    document.getElementById("rosterCount").textContent = (AGENTS.length + 1) + " online";
+    var rc = document.getElementById("rosterCount");
+    if (rc) rc.textContent = AGENTS.length + " agents";
     document.getElementById("agentCount").textContent = AGENTS.length + 1;
   }
 
@@ -783,6 +804,14 @@
   // ---------- Chat ----------
   var chatEl = document.getElementById("chat");
   var chatEmptyEl = document.getElementById("chatEmpty");
+  function nowTs() {
+    var d = new Date();
+    return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+  }
+  function agentRole(id) {
+    for (var i = 0; i < AGENTS.length; i++) if (AGENTS[i].id === id) return AGENTS[i].role;
+    return "";
+  }
   function pushMsg(kind, who, text) {
     if (chatEmptyEl && chatEmptyEl.parentNode) chatEmptyEl.style.display = "none";
     var m = document.createElement("div");
@@ -791,11 +820,13 @@
       m.innerHTML = '<span class="txt">' + text + '</span>';
     } else if (kind === "steer") {
       m.className = "msg steer";
-      m.innerHTML = '<span class="nm">You</span><span class="txt">' + escapeHtml(text) + '</span>';
+      m.innerHTML = '<span class="ts">' + nowTs() + '</span><span class="nm">You</span><span class="sep">:</span><span class="txt">' + escapeHtml(text) + '</span>';
     } else {
       m.className = "msg";
-      m.innerHTML = '<span class="nm" style="color:' + agentColor(who) + '">' + agentName(who) + '</span>' +
-                    '<span class="txt">' + escapeHtml(text) + '</span>';
+      m.innerHTML = '<span class="ts">' + nowTs() + '</span>' +
+                    '<span class="nm" style="color:' + agentColor(who) + '">' + agentName(who) + '</span>' +
+                    '<span class="role">' + agentRole(who) + '</span>' +
+                    '<span class="sep">:</span><span class="txt">' + escapeHtml(text) + '</span>';
     }
     chatEl.appendChild(m);
     chatEl.scrollTop = chatEl.scrollHeight;
@@ -1317,14 +1348,18 @@
   navItems.forEach(function (n) {
     n.addEventListener("click", function () { switchView(n.getAttribute("data-view")); });
   });
-  document.querySelectorAll(".chan").forEach(function (c) {
-    c.addEventListener("click", function (e) {
-      e.preventDefault();
-      document.querySelectorAll(".chan").forEach(function (x) { x.classList.remove("active"); });
-      c.classList.add("active");
-      switchView("team");
+
+  // chat send box (talk to the room)
+  var chatSendEl = document.getElementById("chatSend");
+  if (chatSendEl) {
+    chatSendEl.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" && this.value.trim()) {
+        pushMsg("steer", null, this.value.trim());
+        this.value = "";
+        e.preventDefault();
+      }
     });
-  });
+  }
 })();
 </script>
 </body>
