@@ -93,11 +93,15 @@ Almost every mutating API uses the **Supabase service role** after a thin app ch
 
 ## Fix plan (PR loop)
 
-| PR | Fixes |
-|----|--------|
-| #1 Fail-closed secrets | C1, C3, H1 — shared auth helper; require secrets; reject unsigned webhooks |
-| #2 Kill pilot backdoor in prod | C2 — gate Ganesh API + UI; keep password out of prod client path |
-| #3 Access control hardening | H2, H3, M1 — LiveKit session+access, enforce commerce, role trigger |
+| PR | Fixes | Link |
+|----|--------|------|
+| #1 Fail-closed secrets | C1, C3, H1 | https://github.com/vagdotdev/jini-mvp-web/pull/3 |
+| #2 Kill pilot backdoor in prod | C2 | https://github.com/vagdotdev/jini-mvp-web/pull/4 |
+| #3 Access control hardening | H2, H3, M1, M3 | https://github.com/vagdotdev/jini-mvp-web/pull/5 |
+
+Merge order: **#3 → #4 → #5** (stacked). Or merge #3 first, retarget #4 to `main`, then #5.
+
+**Prod ops after merge:** set `JINI_STREAM_CREATE_SECRET` + `JINI_CRON_SECRET` (+ `RAZORPAY_WEBHOOK_SECRET` before enabling webhooks). Apply migration `009_guard_profile_role.sql`. Delete/reset any existing `ganesh@jini.test` user in Supabase.
 
 ---
 
