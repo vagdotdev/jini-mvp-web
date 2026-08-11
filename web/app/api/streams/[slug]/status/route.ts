@@ -1,18 +1,12 @@
 import { NextResponse } from "next/server";
 import { RoomServiceClient } from "livekit-server-sdk";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireCreateSecret } from "@/lib/auth/secrets";
 import { readLiveKitServerEnv, toLiveKitApiUrl } from "@/lib/livekit/server-env";
 
 type RouteContext = { params: Promise<{ slug: string }> };
 
 const ALLOWED_STATUSES = new Set(["scheduled", "live", "ended"]);
-
-function checkCreateSecret(req: Request) {
-  const required = process.env.JINI_STREAM_CREATE_SECRET;
-  if (!required) return true;
-  const sent = req.headers.get("x-jini-create-secret");
-  return sent === required;
-}
 
 /**
  * POST /api/streams/:slug/status
@@ -24,9 +18,8 @@ function checkCreateSecret(req: Request) {
  *   - expires pending orders for those items
  */
 export async function POST(req: Request, context: RouteContext) {
-  if (!checkCreateSecret(req)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const denied = requireCreateSecret(req);
+  if (denied) return denied;
   const { slug } = await context.params;
   const admin = createAdminClient();
   if (!admin) {

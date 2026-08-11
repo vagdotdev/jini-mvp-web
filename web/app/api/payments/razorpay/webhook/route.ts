@@ -9,9 +9,8 @@ import { logger, wrapRoute } from "@/lib/logger";
  * Razorpay server-to-server events. Register this URL in Dashboard → Webhooks.
  *
  * Security:
- * - When `RAZORPAY_WEBHOOK_SECRET` is set: require `X-Razorpay-Signature` = HMAC-SHA256(hex) of the
- *   **raw** request body with that secret (same pattern as Razorpay’s webhook docs).
- * - When unset: request is accepted for local dev only — **never** ship production without the secret.
+ * - Requires `RAZORPAY_WEBHOOK_SECRET`. Rejects with 503 if unset.
+ * - Requires `X-Razorpay-Signature` = HMAC-SHA256(hex) of the **raw** request body.
  *
  * Current behavior: parses JSON, logs `event`, returns `{ received: true, event }`.
  * Next: handle `payment.captured` (and related) idempotently — credit wallet or mark order paid
@@ -24,24 +23,27 @@ export const POST = wrapRoute("api.payments.razorpay.webhook", async (req: Reque
   const sig = req.headers.get("x-razorpay-signature");
   const secret = getRazorpayWebhookSecret();
 
-  if (secret) {
-    if (!sig) {
-      return NextResponse.json({ error: "Missing signature" }, { status: 400 });
-    }
-    const expected = createHmac("sha256", secret).update(raw).digest("hex");
-    try {
-      const ok = timingSafeEqual(Buffer.from(expected), Buffer.from(sig));
-      if (!ok) {
-        return NextResponse.json({ error: "Bad signature" }, { status: 400 });
-      }
-    } catch {
+  if (!secret) {
+    return NextResponse.json(
+      {
+        error:
+          "RAZORPAY_WEBHOOK_SECRET is not configured. Unsigned webhooks are rejected.",
+        code: "SECRET_NOT_CONFIGURED",
+      },
+      { status: 503 },
+    );
+  }
+  if (!sig) {
+    return NextResponse.json({ error: "Missing signature" }, { status: 400 });
+  }
+  const expected = createHmac("sha256", secret).update(raw).digest("hex");
+  try {
+    const ok = timingSafeEqual(Buffer.from(expected), Buffer.from(sig));
+    if (!ok) {
       return NextResponse.json({ error: "Bad signature" }, { status: 400 });
     }
-  } else {
-    logger.warn(
-      "api.payments.razorpay.webhook",
-      "RAZORPAY_WEBHOOK_SECRET not set — accepting webhook unsigned (dev only)",
-    );
+  } catch {
+    return NextResponse.json({ error: "Bad signature" }, { status: 400 });
   }
 
   let event: { event?: string; payload?: { payment?: { entity?: { id?: string } } } };

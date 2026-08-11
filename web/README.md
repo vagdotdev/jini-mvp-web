@@ -14,7 +14,9 @@ This is the **Next.js** application: the website viewers open, plus admin/host/b
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
    - `SUPABASE_SERVICE_ROLE_KEY`
    - `NEXT_PUBLIC_APP_URL` (e.g. `http://localhost:3000` while developing)
-5. Optional: set `JINI_STREAM_CREATE_SECRET` in `.env.local` and the same value in the admin page “Create secret” field so random people cannot create streams.
+   - `JINI_STREAM_CREATE_SECRET` (**required** — admin APIs fail closed without it)
+   - `JINI_CRON_SECRET` (**required** for lock-release cron)
+5. Put the same `JINI_STREAM_CREATE_SECRET` value in the admin page “Create secret” field.
 6. From this folder run:
 
 ```bash
@@ -22,6 +24,8 @@ npm run dev
 ```
 
 7. Open [http://localhost:3000/admin](http://localhost:3000/admin), create a stream, copy the three links.
+
+Security notes: see `../SECURITY_WHITEBOX_REPORT.md`.
 
 ## Repo layout reminder
 
