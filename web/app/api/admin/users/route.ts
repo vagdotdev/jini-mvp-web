@@ -1,13 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireCreateSecret } from "@/lib/auth/secrets";
 import { wrapRoute } from "@/lib/logger";
-
-function checkCreateSecret(req: Request) {
-  const required = process.env.JINI_STREAM_CREATE_SECRET;
-  if (!required) return true;
-  const sent = req.headers.get("x-jini-create-secret");
-  return sent === required;
-}
 
 /**
  * GET /api/admin/users?q=<text>
@@ -15,9 +9,8 @@ function checkCreateSecret(req: Request) {
  * Filters by case-insensitive substring on email / full name / phone when q is provided.
  */
 export const GET = wrapRoute("api.admin.users", async (req: Request) => {
-  if (!checkCreateSecret(req)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const denied = requireCreateSecret(req);
+  if (denied) return denied;
 
   const admin = createAdminClient();
   if (!admin) {

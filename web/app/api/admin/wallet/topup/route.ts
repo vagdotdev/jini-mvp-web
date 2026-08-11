@@ -1,13 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireCreateSecret } from "@/lib/auth/secrets";
 import { logger, wrapRoute } from "@/lib/logger";
-
-function checkCreateSecret(req: Request) {
-  const required = process.env.JINI_STREAM_CREATE_SECRET;
-  if (!required) return true;
-  const sent = req.headers.get("x-jini-create-secret");
-  return sent === required;
-}
 
 type Body = {
   user_id?: string;
@@ -26,9 +20,8 @@ type Body = {
 export const POST = wrapRoute(
   "api.admin.wallet.topup",
   async (req: Request) => {
-    if (!checkCreateSecret(req)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const denied = requireCreateSecret(req);
+    if (denied) return denied;
 
     const admin = createAdminClient();
     if (!admin) {

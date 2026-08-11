@@ -504,18 +504,18 @@ export default function AdminControlPage() {
             />
             <label className="mt-5 block text-sm font-semibold text-zinc-900">
               Enter secret
-              <span className="font-normal text-zinc-500"> optional</span>
+              <span className="font-normal text-zinc-500"> required</span>
             </label>
             <p className="mt-1 text-xs leading-5 text-zinc-500">
-              Leave blank for now. Later, this becomes the password that
-              prevents random people from creating streams.
+              Must match `JINI_STREAM_CREATE_SECRET` in the server env. Without
+              it, admin APIs refuse to run.
             </p>
             <input
               className="mt-2 w-full rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-base text-zinc-950 outline-none ring-violet-500 placeholder:text-zinc-400 focus:border-violet-500 focus:bg-white focus:ring-2"
               type="password"
               value={secret}
               onChange={(e) => setSecret(e.target.value)}
-              placeholder="Leave empty if not configured"
+              placeholder="Same value as JINI_STREAM_CREATE_SECRET"
               autoComplete="off"
             />
             <button

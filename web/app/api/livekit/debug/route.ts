@@ -7,24 +7,16 @@ import {
   LIVEKIT_NOT_CONFIGURED_CODE,
 } from "@/lib/livekit/setup-messages";
 import { readLiveKitServerEnv, toLiveKitApiUrl } from "@/lib/livekit/server-env";
+import { requireCreateSecret } from "@/lib/auth/secrets";
 
 /**
  * GET /api/livekit/debug
  * Validates LiveKit credentials by performing a single ListRooms call.
- * Gated by JINI_STREAM_CREATE_SECRET when set, so it can stay enabled in
- * production without leaking the existence of credentials.
+ * Gated by required `JINI_STREAM_CREATE_SECRET` header.
  */
-function checkCreateSecret(req: Request) {
-  const required = process.env.JINI_STREAM_CREATE_SECRET;
-  if (!required) return true;
-  const sent = req.headers.get("x-jini-create-secret");
-  return sent === required;
-}
-
 export async function GET(req: Request) {
-  if (!checkCreateSecret(req)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const denied = requireCreateSecret(req);
+  if (denied) return denied;
   const lk = readLiveKitServerEnv();
   if (!lk.configured) {
     return NextResponse.json(
