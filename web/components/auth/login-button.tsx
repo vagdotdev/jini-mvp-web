@@ -3,8 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
-// PILOT-ONLY: Ganesh test sign-in. Remove with the manual-wallet pilot.
-import { GANESH_EMAIL, GANESH_PASSWORD } from "@/lib/dev/ganesh";
+
+const showPilotLogin = process.env.NODE_ENV !== "production";
 
 type LoginButtonProps = {
   redirectTo: string;
@@ -90,6 +90,10 @@ export function LoginButton({
 
   // PILOT-ONLY: Ganesh test sign-in. Remove with the manual-wallet pilot.
   async function loginAsGanesh() {
+    if (!showPilotLogin) {
+      setMessage("Pilot login is disabled in this build.");
+      return;
+    }
     const supabase = createBrowserSupabaseClient();
     if (!supabase) {
       setMessage(
@@ -101,6 +105,7 @@ export function LoginButton({
     setMessage(null);
     setSuccessMessage(null);
     try {
+      const { GANESH_EMAIL, GANESH_PASSWORD } = await import("@/lib/dev/ganesh");
       const ensureRes = await fetch("/api/dev/login-as-ganesh", {
         method: "POST",
       });
@@ -149,27 +154,34 @@ export function LoginButton({
       >
         {loading ? "Opening Google..." : "Continue with Google"}
       </button>
-      <button
-        type="button"
-        onClick={() => void skipGoogleDev()}
-        disabled={anyLoading}
-        className="w-full rounded-xl border border-zinc-300 bg-white px-5 py-3 text-sm font-medium text-zinc-800 shadow-sm hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {loadingAnon ? "Starting dev session..." : "Skip Google for now (dev)"}
-      </button>
-      {/* PILOT-ONLY: Ganesh test sign-in. Remove with the manual-wallet pilot. */}
-      <button
-        type="button"
-        onClick={() => void loginAsGanesh()}
-        disabled={anyLoading}
-        className="w-full rounded-xl border-2 border-dashed border-amber-400 bg-amber-100 px-5 py-3 text-sm font-bold uppercase tracking-wide text-amber-900 shadow-sm hover:bg-amber-200 disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        {loadingGanesh ? "Becoming Ganesh..." : "Login as Ganesh (test user)"}
-      </button>
-      <p className="-mt-1 px-1 text-[11px] leading-4 text-amber-800/80">
-        Pilot only. Skips the form and drops you straight into the live stream
-        as our shared test account.
-      </p>
+      {showPilotLogin ? (
+        <button
+          type="button"
+          onClick={() => void skipGoogleDev()}
+          disabled={anyLoading}
+          className="w-full rounded-xl border border-zinc-300 bg-white px-5 py-3 text-sm font-medium text-zinc-800 shadow-sm hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {loadingAnon ? "Starting dev session..." : "Skip Google for now (dev)"}
+        </button>
+      ) : null}
+      {showPilotLogin ? (
+        <>
+          <button
+            type="button"
+            onClick={() => void loginAsGanesh()}
+            disabled={anyLoading}
+            className="w-full rounded-xl border-2 border-dashed border-amber-400 bg-amber-100 px-5 py-3 text-sm font-bold uppercase tracking-wide text-amber-900 shadow-sm hover:bg-amber-200 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {loadingGanesh
+              ? "Becoming Ganesh..."
+              : "Login as Ganesh (test user)"}
+          </button>
+          <p className="-mt-1 px-1 text-[11px] leading-4 text-amber-800/80">
+            Pilot only. Skips the form and drops you straight into the live stream
+            as our shared test account.
+          </p>
+        </>
+      ) : null}
       {successMessage ? (
         <p className="rounded-lg bg-emerald-50 px-3 py-2 text-xs leading-relaxed text-emerald-900">
           {successMessage}
