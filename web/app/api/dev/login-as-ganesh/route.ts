@@ -4,6 +4,7 @@
 // then signs in with `signInWithPassword` using the shared constants.
 
 import { NextResponse } from "next/server";
+import { pilotLoginAllowed } from "@/lib/auth/secrets";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logger, wrapRoute } from "@/lib/logger";
 import {
@@ -15,6 +16,16 @@ import {
 } from "@/lib/dev/ganesh";
 
 export const POST = wrapRoute("api.dev.login-as-ganesh", async () => {
+  if (!pilotLoginAllowed()) {
+    return NextResponse.json(
+      {
+        error:
+          "Pilot login disabled in production. Set JINI_ALLOW_PILOT_LOGIN=true only for intentional test deploys.",
+      },
+      { status: 404 },
+    );
+  }
+
   const admin = createAdminClient();
   if (!admin) {
     return NextResponse.json(
