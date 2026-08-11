@@ -1,6 +1,7 @@
 import { AccessToken } from "livekit-server-sdk";
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
 import {
   LIVEKIT_BAD_CONFIG_CODE,
   LIVEKIT_CLOUD_URL,
@@ -81,7 +82,41 @@ export const GET = wrapRoute("api.livekit.token", async (req: Request) => {
     );
   }
 
-  const identity = `${role}-${crypto.randomUUID()}`;
+  let identity: string;
+  if (role === "host") {
+    identity = `host-${crypto.randomUUID()}`;
+  } else {
+    const supabase = await createServerSupabaseClient();
+    if (!supabase) {
+      return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
+    }
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: "Login required" }, { status: 401 });
+    }
+    const { data: access, error: accessError } = await admin
+      .from("stream_access")
+      .select("id")
+      .eq("stream_id", stream.id)
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (accessError) {
+      return NextResponse.json({ error: accessError.message }, { status: 500 });
+    }
+    if (!access) {
+      return NextResponse.json(
+        {
+          error:
+            "Complete onboarding for this stream before joining the live room.",
+        },
+        { status: 403 },
+      );
+    }
+    identity = `viewer-${user.id}`;
+  }
+
   const accessToken = new AccessToken(lk.apiKey, lk.apiSecret, {
     identity,
     name: role === "host" ? "Jini host" : "Jini viewer",
