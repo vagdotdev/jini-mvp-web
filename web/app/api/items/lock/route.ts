@@ -47,6 +47,27 @@ export const POST = wrapRoute("api.items.lock", async (req: Request) => {
     );
   }
 
+  const { data: streamRow, error: streamError } = await admin
+    .from("live_streams")
+    .select("id, commerce_enabled, status")
+    .eq("id", itemRow.stream_id)
+    .maybeSingle();
+  if (streamError) {
+    return NextResponse.json({ error: streamError.message }, { status: 500 });
+  }
+  if (!streamRow || streamRow.status === "ended") {
+    return NextResponse.json(
+      { error: "This stream is not accepting purchases." },
+      { status: 410 },
+    );
+  }
+  if (streamRow.commerce_enabled !== true) {
+    return NextResponse.json(
+      { error: "Buying is paused for this stream right now." },
+      { status: 403 },
+    );
+  }
+
   const { data: access, error: accessError } = await admin
     .from("stream_access")
     .select("id")

@@ -67,6 +67,7 @@ export function OnboardingForm({ slug, authVersion = 0 }: OnboardingFormProps) {
       return;
     }
 
+    // Never send `role` from the client — DB default/trigger owns it.
     const { error } = await supabase.from("profiles").upsert({
       id: userData.user.id,
       full_name: name.trim(),
@@ -74,7 +75,6 @@ export function OnboardingForm({ slug, authVersion = 0 }: OnboardingFormProps) {
       default_shipping_address: {
         line1: address.trim(),
       },
-      role: "buyer",
     });
 
     if (error) {
